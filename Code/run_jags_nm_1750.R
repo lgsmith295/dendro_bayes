@@ -27,26 +27,27 @@ load(file = "Data/az_nm/raw_2904.RData")
 
 # Based on sample depth only do reconstruction of last 1000 years (and before 1500 is based completely on 1 species: PSME)
 if(TRUE) {
-cores <- raw %>%
-  group_by(core) %>%
-  dplyr::filter(!is.na(rwl)) %>%
-  dplyr::select(core, year, rwl) %>%
-  # dplyr::summarise(n()) %>%
-  # dplyr::filter()
-  summarise(f_yr = max(year),
-            rwl = min(rwl)) %>%
-  dplyr::filter(f_yr >= 1000) # 1510
-
-raw <- raw %>%
-  ungroup() %>%
-  dplyr::filter(core %in% cores$core) # ,
-                # year >= 1710) # not sure why this still isn't working with creating first and last year vectors
+  cores <- raw %>%
+    group_by(core) %>%
+    dplyr::filter(!is.na(rwl)) %>%
+    dplyr::select(core, year, rwl) %>%
+    # dplyr::summarise(n()) %>%
+    # dplyr::filter()
+    summarise(f_yr = max(year),
+              rwl = min(rwl)) %>%
+    dplyr::filter(f_yr >= 1750) # multiple species with decent sample depth
+  
+  raw <- raw %>%
+    ungroup() %>%
+    dplyr::filter(core %in% cores$core) # ,
+  # year >= 1710) # not sure why this still isn't working with creating first and last year vectors
 }
 
 raw <- raw %>%
-  filter(year >= 1000)
+  filter(year >= 1750,
+         sp_code != "PSME") # something weird with PSME?
 
-  # make yij core x year table
+# make yij core x year table
 y_ij <- raw %>%
   group_by(study, noaa_id, sp_code, core) %>%
   dplyr::select(-rwl_norm, -core1) %>%
@@ -101,7 +102,7 @@ y_orig <- y_ij %>%
 
 # For now for the sake of time and memory just do last 500 years of climate
 # y_orig <- y_orig[ , (ncol(y_orig)-1000):ncol(y_orig)]
-  
+
 y_std <- (y_orig - mean(y_orig, na.rm = T) / sd(y_orig, na.rm = T))
 log_y <- log(y_orig + 0.001) # add tiny increase for years with zero growth (missing rings?)
 
@@ -186,7 +187,7 @@ m2_nc_data <- list(y = log_y,
                    Tea = Tea, 
                    a = a_use,
                    K = K,
-                  species = species,
+                   species = species,
                    # v = 410, # or 320 
                    x = x_use)
 
@@ -210,6 +211,7 @@ stopCluster(cl)
 m_negexp_norm <- mcmc.list(out)
 
 plot(m_negexp_norm[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]")])
+plot(m_negexp_norm[ ,c("sd_eta[1]", "sd_eta[2]", "sd_x", "beta0[1]", "beta0[2]")])
 par(mfrow = c(1,1))
 x_id_50 = which(substr(varnames(m_negexp_norm),1,2)=="x[") # finds the indices of the x variables
 post_climate_50 = colMeans(as.matrix(m_negexp_norm[,x_id_50])) # finds the posterior mean of the x variables
@@ -289,7 +291,7 @@ initialize_m2_nc = function(){
   for(k in 1:K) {
     beta0[k, 1] = 0
     beta0[k, 2] = rnorm(1, 0.5, 0.1)
-  #   sd_eta[k] = sd(eta[ , k])
+    #   sd_eta[k] = sd(eta[ , k])
   }
   sd_eta = runif(K, 0.2, 0.3)
   sd_x = rlnorm(1, 0, 1) 
@@ -337,6 +339,7 @@ stopCluster(cl)
 m_negexp_1change <- mcmc.list(out)
 
 plot(m_negexp_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1")])
+plot(m_negexp_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[1,2]", "beta0[2,2]", "x_1")])
 par(mfrow = c(1,1))
 x_id_50 = which(substr(varnames(m_negexp_1change),1,2)=="x[") # finds the indices of the x variables
 post_climate_50 = colMeans(as.matrix(m_negexp_1change[,x_id_50])) # finds the posterior mean of the x variables
@@ -530,7 +533,7 @@ x_min <- (0 - x_mean) / x_sd # value of x on standardized scale when climate = 0
 
 initialize_m2_nc = function(){
   alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25)
- # alpha1 = -rlnorm(M, -1, 1)
+  # alpha1 = -rlnorm(M, -1, 1)
   sd_y = rlnorm(M, 0, 0.25) 
   sd_a0 = sd(alpha0)
   # sd_a1 = sd(alpha1)
@@ -804,20 +807,20 @@ initialize_m2_nc = function(){
   # theta = runif(K, 1, 1.5)
   theta = runif(K, 1, 1.5)
   sd_x = rlnorm(1, log(x_obs), 0.1) 
- # x = c(rep(mean(log(x_full), na.rm = T), times = 1895), log(x_obs))
+  # x = c(rep(mean(log(x_full), na.rm = T), times = 1895), log(x_obs))
   return(list(
-              alpha0 = alpha0,
-              alpha1 = alpha1,
-              # mu_a0 = mu_a0,
-              # mu_a1 = mu_a1,
-              # sd_a0 = sd_a0,
-              # sd_a1 = sd_a1,
-              sd_eta = sd_eta,
-              beta0 = beta0,
-             theta = theta,
-            # x = x,
-              # sd_x = sd_x,
-             sd_y = sd_y))
+    alpha0 = alpha0,
+    alpha1 = alpha1,
+    # mu_a0 = mu_a0,
+    # mu_a1 = mu_a1,
+    # sd_a0 = sd_a0,
+    # sd_a1 = sd_a1,
+    sd_eta = sd_eta,
+    beta0 = beta0,
+    theta = theta,
+    # x = x,
+    # sd_x = sd_x,
+    sd_y = sd_y))
 }
 
 params <- c("x", "beta0", "theta", "sd_eta", "sd_x", "sd_y")

@@ -19,8 +19,8 @@ library(ggfan)
 
 #### Load and Prep Data #####
 # load data
-a_use <- as.matrix(read.table('age.txt', header = FALSE))
-year <- c(read.table("year.txt"), recursive = TRUE) 
+a_use <- as.matrix(read.table('Data/Tornetrask/age.txt', header = FALSE))
+year <- c(read.table("Data/Tornetrask/year.txt"), recursive = TRUE) 
 x_full <- c(read.table("Data/Tornetrask/xtorn.txt"), recursive=TRUE) # climate data
 
 # Combine year and climate data
@@ -51,6 +51,8 @@ for(i in 1:M) {
   f[i] <- min(tmp)
   l[i] <- max(tmp)
 }
+
+years <- unique(year)
 
 #### Does creating a standard chronology FORCE the climate reconstruction to be (normally) distributed with fluctuations around a mean????? Over flatten??? #####
 
@@ -890,6 +892,133 @@ sqrt(mean(res2))
 
 #####
 
+##### negexp detrend 1 changepoint climate - seems good ####
+
+x_min <- min(x_use, na.rm = T) # value of x on standardized scale when climate = 0
+
+initialize_m2_nc = function(){
+  alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25)
+  alpha1 = -rlnorm(M, -1, 0.25)
+  sd_y = rlnorm(M, 0, 1) 
+  mu_a0 = mean(alpha0)
+  mu_a1 = mean(alpha1)
+  sd_a0 = sd(alpha0)
+  sd_a1 = sd(alpha1)
+  eta = rnorm(Tea, 0, 0.25)
+  beta0 <- rep(NA_real_, times = 2)
+  beta0[1] = rnorm(2, -10, 0.5)
+  beta0[2] = rnorm(2, 0.5, 0.1)
+  #   sd_eta[k] = sd(eta[ , k])
+  sd_eta = runif(1, 0.2, 0.3)
+  x_1 = runif(1, x_min, 0)
+  sd_x = rlnorm(1, 0, 1) 
+  return(list(sd_y = sd_y,
+              alpha0 = alpha0,
+              alpha1 = alpha1,
+              # mu_a0 = mu_a0,
+              # mu_a1 = mu_a1,
+              # sd_a0 = sd_a0,
+              # sd_a1 = sd_a1,
+              sd_eta = sd_eta,
+              beta0 = beta0,
+              x_1 = x_1,
+              sd_x = sd_x))
+}
+
+m2_nc_data <- list(y = log_y, 
+                   f = f, 
+                   l = l, 
+                   M = M, 
+                   Tea = Tea, 
+                   a = a_use,
+                   # K = K,
+                   # species = species,
+                   x_min = x_min,
+                   # v = 410, # or 320 
+                   x = x_use)
+
+params <- c("x", "beta0", "sd_eta", "sd_x", "sd_y", "x_1")
+
+cl <- makeCluster(nc)                       # Request # cores
+clusterExport(cl, c("m2_nc_data", "initialize_m2_nc", "params", "M", "f", "l", "Tea", "a_use", "log_y", "x_use", "x_min", "nb", "ni", "nt"))
+clusterSetRNGStream(cl = cl, 98708761)
+system.time({ 
+  out <- clusterEvalQ(cl, {
+    library(rjags)
+    jm <- jags.model("Code/JAGS/negexp_1changept.txt", m2_nc_data, initialize_m2_nc, n.adapt=nb, n.chains=1) # Compile model and run burnin
+    out <- coda.samples(jm, params, n.iter=ni, thin=nt) # Sample from posterior distribution
+    return(as.mcmc(out))
+  })
+}) # 
+
+stopCluster(cl)
+
+# Results
+m_negexp_1change <- mcmc.list(out)
+
+plot(m_negexp_1change[ ,c("sd_eta", "sd_x", "beta0[1]", "beta0[2]", "x_1")])
+par(mfrow = c(1,1))
+x_id_50 = which(substr(varnames(m_negexp_1change),1,2)=="x[") # finds the indices of the x variables
+post_climate_50 = colMeans(as.matrix(m_negexp_1change[,x_id_50])) # finds the posterior mean of the x variables
+# plot(post_climate_50,type="l") # plots the posterior mean of the x variables
+plot(years, post_climate_50*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
+
+# validation
+x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+x_valid <- x_full[hold_out]
+plot(x_valid, x_valid_post_m, type = "p")
+abline(0, 1, col = "red")
+cor(x_valid, x_valid_post_m)
+
+res2 <- (x_valid_post_m - x_valid)^2
+sqrt(sum(res2) / length(x_valid_post_m))
+sqrt(mean(res2))
+
+# reconstruction plot
+plot_recon <- function(mcmc, obs = climate, mean = x_mean, sd = x_sd, valid_yrs = NULL) {
+  xidx_m2 = which(substr(varnames(mcmc),1,2)=="x[")
+  temp_df <- as_tibble(t(as.matrix(mcmc[ , xidx_m2])))
+  temp_df <- temp_df %>% 
+    mutate(year = obs$year)
+  
+  temp_df_long <- temp_df %>% 
+    gather(key = sim, value = temp, -year) %>%
+    dplyr::mutate(temp = temp*sd + mean)
+  
+  # Validation plot
+  if(!is.null(valid_yrs)) {
+    temp_valid <- temp_df_long %>%
+      dplyr::filter(year %in% valid_yrs) %>%
+      dplyr::mutate(Value = "estimated")
+    
+    climate_valid <- obs %>%
+      dplyr::mutate(Value = "observed") %>%
+      dplyr::rename(temp = value) %>% # x_full) %>%
+      dplyr::filter(year %in% valid_yrs)
+    
+    g <- ggplot(temp_valid, aes(x = year, y = temp))
+    g <- g + geom_fan() + geom_line(data = climate_valid, aes(year, temp), colour = "red") + ylab("Annual Precipitation (cm)") + xlab("Year") + scale_fill_distiller() + theme_bw()
+  } else {
+    # scaled posterior interval
+    g <- ggplot(temp_df_long, aes(x = year, y = temp))
+    g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab("Annual Precipitation (cm)") + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
+  }
+  return(g)
+}
+
+recon <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full))
+
+# consider doing observed values as points to better see where they fall within the credible interval
+recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full), valid_yrs = years[hold_out])
+
+## any better than random points around the mean?
+
+
+# recon + geom_smooth(se = FALSE) # do not do this with the MCMC chains. Maybe smooth through the mean or something else because this will kill the computer.
+
+#####
+
+
 #### RCS + climate spline 50 year knots #####
 knots <- seq(0, 500, by = 50)
 B <- bs(1:Tea, knots = knots) # neet to sort x_use? then doesn't line up with rest.
@@ -1051,6 +1180,135 @@ sqrt(mean(res2))
 
 #####
 
+##### negexp detrend 2 changepoints climate  - no convergence ####
+# probably not enough observed values when trees stop growing, would need strong prior or to fix it as Schofield did based on other studies
+
+x_min <- min(x_use, na.rm = T)
+x_max <- max(x_use, na.rm = T)
+
+initialize_m2_nc = function(){
+  alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25)
+  alpha1 = -rlnorm(M, -1, 0.25)
+  sd_y = rlnorm(M, 0, 1) 
+  mu_a0 = mean(alpha0)
+  mu_a1 = mean(alpha1)
+  sd_a0 = sd(alpha0)
+  sd_a1 = sd(alpha1)
+  eta = rnorm(Tea, 0, 0.25)
+  beta0 <- rep(NA_real_, times = 2)
+  # beta0[1] = rnorm(2, -10, 0.5)
+  beta0[2] = rnorm(2, 0.5, 0.1)
+  beta0[3] = rnorm(2, 0.5, 0.1)
+  #   sd_eta[k] = sd(eta[ , k])
+  sd_eta = runif(1, 0.2, 0.3)
+  x_1 = runif(2, x_min, x_max)
+  sd_x = rlnorm(1, 0, 1) 
+  return(list(sd_y = sd_y,
+              alpha0 = alpha0,
+              alpha1 = alpha1,
+              # mu_a0 = mu_a0,
+              # mu_a1 = mu_a1,
+              # sd_a0 = sd_a0,
+              # sd_a1 = sd_a1,
+              sd_eta = sd_eta,
+              beta0 = beta0,
+              x_1 = x_1,
+              sd_x = sd_x))
+}
+
+m2_nc_data <- list(y = log_y, 
+                   f = f, 
+                   l = l, 
+                   M = M, 
+                   Tea = Tea, 
+                   a = a_use,
+                   # K = K,
+                   # species = species,
+                   x_min = x_min,
+                   x_max = x_max,
+                   # v = 410, # or 320 
+                   x = x_use)
+
+params <- c("x", "beta0", "sd_eta", "sd_x", "sd_y", "x_1", "x_change")
+
+cl <- makeCluster(nc)                       # Request # cores
+clusterExport(cl, c("m2_nc_data", "initialize_m2_nc", "params", "M", "f", "l", "Tea", "a_use", "log_y", "x_use", "x_min", "x_max", "nb", "ni", "nt"))
+clusterSetRNGStream(cl = cl, 98708761)
+system.time({ 
+  out <- clusterEvalQ(cl, {
+    library(rjags)
+    jm <- jags.model("Code/JAGS/negexp_2changept.txt", m2_nc_data, initialize_m2_nc, n.adapt=nb, n.chains=1) # Compile model and run burnin
+    out <- coda.samples(jm, params, n.iter=ni, thin=nt) # Sample from posterior distribution
+    return(as.mcmc(out))
+  })
+}) # 
+
+stopCluster(cl)
+
+# Results
+m_negexp_2change <- mcmc.list(out)
+
+plot(m_negexp_2change[ ,c("sd_eta", "sd_x", "beta0[1]", "beta0[2]", "x_1[1]")])
+par(mfrow = c(1,1))
+x_id_50 = which(substr(varnames(m_negexp_2change),1,2)=="x[") # finds the indices of the x variables
+post_climate_50 = colMeans(as.matrix(m_negexp_2change[,x_id_50])) # finds the posterior mean of the x variables
+# plot(post_climate_50,type="l") # plots the posterior mean of the x variables
+plot(years, post_climate_50*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
+
+# validation
+x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+x_valid <- x_full[hold_out]
+plot(x_valid, x_valid_post_m, type = "p")
+abline(0, 1, col = "red")
+cor(x_valid, x_valid_post_m)
+
+res2 <- (x_valid_post_m - x_valid)^2
+sqrt(sum(res2) / length(x_valid_post_m))
+sqrt(mean(res2))
+
+# reconstruction plot
+plot_recon <- function(mcmc, obs = climate, mean = x_mean, sd = x_sd, valid_yrs = NULL) {
+  xidx_m2 = which(substr(varnames(mcmc),1,2)=="x[")
+  temp_df <- as_tibble(t(as.matrix(mcmc[ , xidx_m2])))
+  temp_df <- temp_df %>% 
+    mutate(year = obs$year)
+  
+  temp_df_long <- temp_df %>% 
+    gather(key = sim, value = temp, -year) %>%
+    dplyr::mutate(temp = temp*sd + mean)
+  
+  # Validation plot
+  if(!is.null(valid_yrs)) {
+    temp_valid <- temp_df_long %>%
+      dplyr::filter(year %in% valid_yrs) %>%
+      dplyr::mutate(Value = "estimated")
+    
+    climate_valid <- obs %>%
+      dplyr::mutate(Value = "observed") %>%
+      dplyr::rename(temp = value) %>% # x_full) %>%
+      dplyr::filter(year %in% valid_yrs)
+    
+    g <- ggplot(temp_valid, aes(x = year, y = temp))
+    g <- g + geom_fan() + geom_line(data = climate_valid, aes(year, temp), colour = "red") + ylab("Annual Precipitation (cm)") + xlab("Year") + scale_fill_distiller() + theme_bw()
+  } else {
+    # scaled posterior interval
+    g <- ggplot(temp_df_long, aes(x = year, y = temp))
+    g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab("Annual Precipitation (cm)") + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
+  }
+  return(g)
+}
+
+recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full))
+
+# consider doing observed values as points to better see where they fall within the credible interval
+recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full), valid_yrs = years[hold_out])
+
+## any better than random points around the mean?
+
+
+# recon + geom_smooth(se = FALSE) # do not do this with the MCMC chains. Maybe smooth through the mean or something else because this will kill the computer.
+
+#####
 
 #### Run splines or neg exp on series and if not negative then remove from data before passing to model?? ####
 

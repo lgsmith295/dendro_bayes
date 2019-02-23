@@ -61,6 +61,7 @@ site_df <- site_df %>%
   dplyr::filter(units == "millimeter")
 
 unique(site_df$species) # need to remove unidentified pine species and bristlecone (PIAR) might be more temperature sensitive than moisture if at elevation creating problems
+unique(site_df$common)
 
 # NOAA Climate Divisions
 # Shapefiles from: https://www.esrl.noaa.gov/psd/data/usclimdivs/boundaries.html
@@ -118,7 +119,7 @@ raw <- data.frame(year = as.integer(rownames(tmp)),
                   tmp2, 
                   stringsAsFactors = FALSE)
 raw <- raw %>%
-  tidyr::gather(key = core, value = rwl, -year, -study, -noaa_id, -sp_code)
+  tidyr::gather(key = core1, value = rwl, -year, -study, -noaa_id, -sp_code)
 
 for(i in 2:length(sites)) {
   tmplog[[i]] <- capture.output(tmp <- try(read.rwl(paste0("Data/az_nm/data/pub/data/paleo/treering/measurements/northamerica/usa/", sites[i], ".rwl")), TRUE))
@@ -134,13 +135,29 @@ for(i in 2:length(sites)) {
                          tmp2, 
                          stringsAsFactors = FALSE)
       tmp2 <- tmp2 %>%
-        tidyr::gather(key = core, value = rwl, -year, -study, -noaa_id, -sp_code)
+        tidyr::gather(key = core1, value = rwl, -year, -study, -noaa_id, -sp_code)
       raw <- bind_rows(raw, tmp2)
     }
   }
 
 str(raw)
 head(raw)
+
+raw <- raw %>%
+  unite(core, noaa_id, core1, remove = FALSE)
+
+########### Look for duplicate year-core combos ##########
+
+dups <- raw %>% 
+  group_by(year, core) %>% 
+  mutate(n = n()) %>% 
+  filter(n > 1) %>%
+  arrange(year, core)
+
+dups 
+
+
+##### summaries #####
 length(unique(raw$study))
 length(unique(raw$year))
 length(unique(raw$sp_code))
@@ -165,11 +182,17 @@ ggsave("Results/Figures/NM/raw_series_wrap.pdf")
 
 raw <- raw %>%
   group_by(core) %>%
-  mutate(rwl = ifelse(rwl > 20, NA, rwl),
-         rwl_norm = (rwl - mean(rwl, na.rm = T) / sd(rwl, na.rm = T))) %>%
+  mutate(# rwl = ifelse(rwl > 20, NA, rwl), # don't filter by cutoff yet but look at series. Fucking ITRDB.
+         rwl_norm = (rwl - mean(rwl, na.rm = T)) / sd(rwl, na.rm = T)) %>%
   ungroup()
+
+summary(raw$rwl_norm)
+
 g <- ggplot(data = raw, aes(year, rwl_norm)) + geom_line() + facet_wrap(~core) + theme(legend.position = "none")
 ggsave("Results/Figures/NM/raw_series_norm.pdf")
+
+
+ggplot(data = raw, aes(year, rwl_norm)) + geom_line(aes(color = core)) + theme(legend.position = "none")
 
 sort(unique(names(raw)))
 length(unique(names(raw)))
@@ -177,11 +200,44 @@ length(unique(names(raw)))
 
 save(data = raw, file = "Data/az_nm/raw_2904.RData")
 
-########### check correlations and remove cores #############
+###### Look at individual core series for weird ones with potential data entry errors to throw out #####
 
-########## check sample depth and remove period with fewer than 3 trees? #####
+########### check correlations among cores #############
+y_ji <- raw %>%
+  dplyr::select(year, core, rwl) %>%
+ # mutate(row = row_number()) %>%
+  spread(key = core, value = rwl)
 
+core_cors <- corr.rwl.seg(y_ji)
 
+########### check correlations with climate and remove cores? #############
+cores <- unique(raw$core)
+core_cor <- NA
+for(i in 1:length(unique(raw$core))) {
+  tmp <- raw %>%
+    filter(core == cores[i],
+           !is.na(rwl))
+}
+
+cors <- raw %>%
+  group_by(core) %>%
+  summarise(core_cor = cor)
+
+########## check sample depth and remove period with fewer than 5 cores? #####
+
+samp_depth <- raw %>%
+  ungroup() %>%
+  group_by(year, sp_code) %>%
+  filter(!is.na(rwl)) %>%
+  select(year, sp_code) %>%
+  summarise(n = n())
+
+ggplot(samp_depth, aes(year, n)) + geom_line(aes(color = sp_code)) + ylab("Number of cores (sample depth)") + xlab("Year") + theme_bw() + labs(color = "Sp. Code")
+ggsave("Results/Figures/NM/sample_depth.pdf")
+
+ggplot(filter(samp_depth, n >= 10), aes(year, n)) + geom_line(aes(color = sp_code))
+
+##### examine with dplR to see what's selected for detrending ####
 
 
 

@@ -1,0 +1,34 @@
+model{
+  
+  ######### need to think through the power law if using log(rwl) use log(eta)? or if not negexp trend could just make whole thing linear not loglinear ########
+  
+  for(i in 1:M){
+    for(j in f[i]:l[i]) {
+      y[i,j] ~ dnorm(alpha0[i] + alpha1[i]*a[i,j] + eta[j, species[i]], 1/sd_y[i]/sd_y[i])
+    }
+    
+    alpha0[i] ~ dnorm(0, 0.0001)
+    alpha1[i] ~ dnorm(0, 0.0001)T( , 0) # truncated norm
+    
+    sd_y[i] ~ dt(0, 0.04, 3)T(0, ) # variance differs by core
+  }
+  
+  # Non-centered
+  for(t in 1:Tea) {
+    x[t] ~ dlnorm(mu_x, 1 / sd_x / sd_x)
+    for(k in 1:K) {
+      eta[t, k] ~ dnorm(beta0[k] * pow(x[t], theta[k]), 1 / sd_eta[k] / sd_eta[k]) # not sure about normal error on the power law
+    }
+  }
+  
+  mu_x ~ dlnorm(0, 0.0001)
+  sd_x ~ dt(0, 0.04, 3)T(0, )
+  # beta0 ~ dnorm(0, 0.0001)
+  # sd_eta ~ dt(0, 0.04, 3)T(0, )
+  for(k in 1:K) {
+    beta0[k] ~ dnorm(0, 0.0001)
+   theta[k] ~ dnorm(0, 0.01) #dunif(0, 1) # between 0 and 1 gives it right shape, at least before transforming yij
+    sd_eta[k] ~ dt(0, 0.04, 3)T(0, )
+  }
+  
+}
