@@ -102,7 +102,10 @@ ggplot(site_df_2904, aes(lon, lat)) + geom_polygon(data = nm, aes(long, lat, gro
 
 ggplot(site_df_2904, aes(lon, lat)) + geom_polygon(data = nm, aes(long, lat, group = group), fill = "lightgray", color = "black") + geom_point(data = site_df_2904, aes(color = sp_code)) + coord_fixed(1.3) + xlab("Longitude") + ylab("Latitude") + theme_bw() + labs(color='Species Code') + ggtitle("New Mexico NOAA Climate Divisions")
 
+ggsave("Results/Figures/NM/nm_climate_division_itrdb.tiff")
+
 unique(site_df_2904$common)
+unique(site_df_2904$species)
 
 ##### import core ring data and subset #####
 # import raw data downloaded from ITRDB
@@ -166,104 +169,37 @@ unique(raw$sp_code)
 unique(site_df_2904$sp_code)
 
 summary(raw) # problem: rwl up to 22 but all units say millimeters
+dev.off()
 hist(raw$rwl)
 
 bigs <- raw %>%
   dplyr::filter(rwl > 6)
 unique(bigs$study) 
-bigs # many studies, not sure what a cutoff really would be for unrealistic growth. Such a small proportion
+(bad_cores <- unique(bigs$core))
+# bigs # many studies, not sure what a cutoff really would be for unrealistic growth. Such a small proportion
 
 if(!dir.exists("Results/Figures/NM")) dir.create("Results/Figures/NM")
-g <- ggplot(data = raw, aes(year, rwl)) + geom_line(aes(color = core)) + theme(legend.position = "none")
+g <- ggplot(data = raw, aes(year, rwl)) + geom_line(aes(color = core), alpha = 0.1) + theme(legend.position = "none") + facet_wrap(~sp_code)
 ggsave("Results/Figures/NM/raw_series.pdf")
 
-g <- ggplot(data = raw, aes(year, rwl)) + geom_line() + facet_wrap(~core) + theme(legend.position = "none")
-ggsave("Results/Figures/NM/raw_series_wrap.pdf")
+# g <- ggplot(data = raw, aes(year, rwl)) + geom_line() + facet_wrap(~core) + theme(legend.position = "none")
+# ggsave("Results/Figures/NM/raw_series_wrap.pdf")
+
+good_cores <- unique(raw$core)[!(unique(raw$core) %in% bad_cores)]
 
 raw <- raw %>%
   group_by(core) %>%
-  mutate(# rwl = ifelse(rwl > 20, NA, rwl), # don't filter by cutoff yet but look at series. Fucking ITRDB.
+  filter(core %in% good_cores) %>%
+  mutate(# rwl = ifelse(rwl > 6, NA, rwl), # filtering by semi-arbitraty cutoff but only losing ~32 of 1440 cores. Fucking ITRDB.
          rwl_norm = (rwl - mean(rwl, na.rm = T)) / sd(rwl, na.rm = T)) %>%
   ungroup()
 
+summary(raw$rwl)
 summary(raw$rwl_norm)
 
-g <- ggplot(data = raw, aes(year, rwl_norm)) + geom_line() + facet_wrap(~core) + theme(legend.position = "none")
+g <- ggplot(data = raw, aes(year, rwl_norm)) + geom_line(aes(color = sp_code), alpha = 0.1) + ylab("Normalized RWL") + facet_wrap(~study) + theme(legend.position = "none")
 ggsave("Results/Figures/NM/raw_series_norm.pdf")
 
-
-ggplot(data = raw, aes(year, rwl_norm)) + geom_line(aes(color = core)) + theme(legend.position = "none")
-
-sort(unique(names(raw)))
-length(unique(names(raw)))
-
-
+##### Save raw data #####
 save(data = raw, file = "Data/az_nm/raw_2904.RData")
-
-###### Look at individual core series for weird ones with potential data entry errors to throw out #####
-
-########### check correlations among cores #############
-y_ji <- raw %>%
-  dplyr::select(year, core, rwl) %>%
- # mutate(row = row_number()) %>%
-  spread(key = core, value = rwl)
-
-core_cors <- corr.rwl.seg(y_ji)
-
-########### check correlations with climate and remove cores? #############
-cores <- unique(raw$core)
-core_cor <- NA
-for(i in 1:length(unique(raw$core))) {
-  tmp <- raw %>%
-    filter(core == cores[i],
-           !is.na(rwl))
-}
-
-cors <- raw %>%
-  group_by(core) %>%
-  summarise(core_cor = cor)
-
-########## check sample depth and remove period with fewer than 5 cores? #####
-
-samp_depth <- raw %>%
-  ungroup() %>%
-  group_by(year, sp_code) %>%
-  filter(!is.na(rwl)) %>%
-  select(year, sp_code) %>%
-  summarise(n = n())
-
-ggplot(samp_depth, aes(year, n)) + geom_line(aes(color = sp_code)) + ylab("Number of cores (sample depth)") + xlab("Year") + theme_bw() + labs(color = "Sp. Code")
-ggsave("Results/Figures/NM/sample_depth.pdf")
-
-ggplot(filter(samp_depth, n >= 10), aes(year, n)) + geom_line(aes(color = sp_code))
-
-##### examine with dplR to see what's selected for detrending ####
-
-
-
-
-
-
-##### Save #####
-
-save(data = core_climate, file = "Data/itrdb_pilo_mount_washington/pilo_rwl_climate.RData")
-
-ggplot(data = core_climate, aes(year, rwi_norm)) + geom_line(alpha = 0.1, color = "blue", aes(group = core)) + geom_smooth() + theme_bw() + theme(legend.position="none")
-
-ggplot(data = core_climate, aes(year, rwi)) + geom_line(alpha = 0.1, color = "black", aes(group = core)) + geom_smooth() +  theme_bw() + theme(legend.position="none")
-
-ggplot(data = core_climate, aes(year, log(rwi))) + geom_line(alpha = 0.1, color = "black", aes(group = core)) + geom_smooth() +  theme_bw() + theme(legend.position="none")
-
-ggplot(data = core_climate, aes(year, rwi_norm)) + geom_line() + facet_wrap(~core)
-
-ggplot(data = filter(core_climate, type == "ppt" & summer == 1), aes(rwi_norm, value)) + geom_point() + facet_wrap(~month)
-
-ggplot(data = core_climate, aes(rwi_norm, value)) + geom_point() + facet_wrap(~type)
-
-ggplot(data = core_climate, aes(tmean, rwi_norm)) + geom_point() + facet_wrap(~month)
-
-ggplot(data = core_climate, aes(ppt, rwi_norm)) + geom_point() + facet_wrap(~month)
-
-cor(core_climate$rwi_norm, core_climate$tmean, use = "complete.obs")
-cor(core_climate$core_climate, data$ppt, use = "complete.obs")
 

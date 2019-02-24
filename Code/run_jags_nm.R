@@ -41,10 +41,10 @@ raw <- raw %>%
   ungroup() %>%
   dplyr::filter(core %in% cores$core) # ,
                 # year >= 1710) # not sure why this still isn't working with creating first and last year vectors
-}
 
 raw <- raw %>%
   filter(year >= 1000)
+}
 
   # make yij core x year table
 y_ij <- raw %>%
