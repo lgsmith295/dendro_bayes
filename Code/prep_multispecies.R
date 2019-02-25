@@ -203,3 +203,20 @@ ggsave("Results/Figures/NM/raw_series_norm.pdf")
 ##### Save raw data #####
 save(data = raw, file = "Data/az_nm/raw_2904.RData")
 
+
+##### Prep Climate Data #####
+climate <- read_csv("Data/az_nm/nm_2904_nwmnts_precip_inch.csv")
+
+climate2 <- climate %>%
+  dplyr::select(-year) %>%
+  dplyr::mutate(precip = rowSums(.)*2.54) %>%
+  dplyr::select(precip) %>%
+  bind_cols(. , climate[ , "year"])
+
+climate_mo <- climate %>%
+  group_by(year) %>%
+  gather(month, prec, -year) %>%
+  dplyr::mutate(prec = prec * 2.54) %>%
+  ungroup()
+
+save(climate2, climate_mo, file = "Data/az_nm/annual_ppt_cm.RData")

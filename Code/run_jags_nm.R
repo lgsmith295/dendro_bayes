@@ -23,7 +23,7 @@ library(splines)
 
 #### Load and Prep Data #####
 # load(file = "Data/itrdb_pilo_mount_washington/pilo_rwl_climate.RData")
-load(file = "Data/az_nm/raw_2904.RData")
+raw <- readRDS(file = "Data/az_nm/raw_correlated_2904.RData")
 
 # Based on sample depth only do reconstruction of last 1000 years (and before 1500 is based completely on 1 species: PSME)
 if(TRUE) {
@@ -65,13 +65,8 @@ unique(core_df$tree_core)
 unique(core_df$tree)
 
 # Climate
-climate <- read_csv("Data/az_nm/nm_2904_nwmnts_precip_inch.csv")
-
-climate2 <- climate %>%
-  dplyr::select(-year) %>%
-  dplyr::mutate(precip = rowSums(.)*2.54) %>%
-  dplyr::select(precip) %>%
-  bind_cols(. , climate[ , "year"]) %>%
+load("Data/az_nm/annual_ppt_cm.RData")
+climate2 <- climate2 %>%
   dplyr::filter(year <= max(raw$year, na.rm = TRUE))
 
 years <- sort(unique(raw$year))
