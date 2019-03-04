@@ -566,7 +566,7 @@ matplot(1:500, g, lwd=2, type="l", cex.lab=1.5, cex.axis=1.5)
 
 # run model
 
-m_spline_25 = jags.model('Code/JAGS/climate_spline.txt', 
+m_spline_25 = jags.model('Code/JAGS/ind_negexp_climate_spline.txt', 
                          list(y = log_y, 
                               f = f, 
                               l = l, 
@@ -578,9 +578,9 @@ m_spline_25 = jags.model('Code/JAGS/climate_spline.txt',
                               H = H), 
                          inits = initialize, 
                          n.chains = 3, 
-                         n.adapt = 3000)
+                         n.adapt = 1000)
 
-out_m_climate_spline_25 = coda.samples(m_spline_25, c("x", "sd_eta", "sd_x", "sd_y", "mu_gamma", "sd_g"), 2000)
+out_m_climate_spline_25 = coda.samples(m_spline_25, c("x", "sd_eta", "sd_x", "sd_y", "mu_gamma", "sd_g"), 1000)
 
 plot(out_m_climate_spline_25[ ,c("sd_eta", "sd_x")])
 par(mfrow = c(1,1))
@@ -604,6 +604,78 @@ res2 <- (x_valid_post_m - x_valid)^2
 sqrt(sum(res2) / length(x_valid_post_m))
 sqrt(mean(res2))
 
+##### negexp detrend 1 changepoint climate - seems good ####
+
+x_min <- min(x_use, na.rm = TRUE) # value of x on standardized scale when climate = 0
+x_max <- max(x_use, na.rm = TRUE)
+
+initialize_m2_nc = function(){
+  alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25)
+  alpha1 = -rlnorm(M, -1, 0.25)
+  sd_y = rlnorm(M, 0, 1) 
+  mu_a0 = mean(alpha0)
+  mu_a1 = mean(alpha1)
+  sd_a0 = sd(alpha0)
+  sd_a1 = sd(alpha1)
+  eta = rnorm(Tea, 0, 0.25)
+  beta0 <- rep(NA_real_, times = 2)
+  beta0[1] = rnorm(2, -10, 0.5)
+  beta0[2] = rnorm(2, 0.5, 0.1)
+  #   sd_eta[k] = sd(eta[ , k])
+  sd_eta = runif(1, 0.2, 0.3)
+  x_1 = runif(1, x_min, max(x_use, na.rm = TRUE))
+  sd_x = rlnorm(1, 0, 1) 
+  return(list(sd_y = sd_y,
+              alpha0 = alpha0,
+              alpha1 = alpha1,
+              # mu_a0 = mu_a0,
+              # mu_a1 = mu_a1,
+              # sd_a0 = sd_a0,
+              # sd_a1 = sd_a1,
+              sd_eta = sd_eta,
+              # beta0 = beta0,
+              x_1 = x_1,
+              sd_x = sd_x))
+}
+
+m2_nc_data <- list(y = log_y, 
+                   f = f, 
+                   l = l, 
+                   M = M, 
+                   Tea = Tea, 
+                   a = a_use,
+                   # K = K,
+                   # species = species,
+                   x_min = x_min,
+                   x_max = x_max,
+                   # v = 410, # or 320 
+                   x = x_use)
+
+params <- c("x", "beta0", "sd_eta", "sd_x", "sd_y", "x_1")
+
+cl <- makeCluster(nc)                       # Request # cores
+clusterExport(cl, c("m2_nc_data", "initialize_m2_nc", "params", "M", "f", "l", "Tea", "a_use", "log_y", "x_use", "x_min", "x_max", "nb", "ni", "nt"))
+clusterSetRNGStream(cl = cl, 98708761)
+system.time({ 
+  out <- clusterEvalQ(cl, {
+    library(rjags)
+    jm <- jags.model("Code/JAGS/negexp_1changept.txt", m2_nc_data, initialize_m2_nc, n.adapt=nb, n.chains=1) # Compile model and run burnin
+    out <- coda.samples(jm, params, n.iter=ni, thin=nt) # Sample from posterior distribution
+    return(as.mcmc(out))
+  })
+}) # 
+
+stopCluster(cl)
+
+# Results
+m_negexp_1change <- mcmc.list(out)
+
+plot(m_negexp_1change[ ,c("sd_eta", "sd_x", "beta0[1]", "beta0[2]", "x_1")])
+par(mfrow = c(1,1))
+x_id_50 = which(substr(varnames(m_negexp_1change),1,2)=="x[") # finds the indices of the x variables
+post_climate_50 = colMeans(as.matrix(m_negexp_1change[,x_id_50])) # finds the posterior mean of the x variables
+# plot(post_climate_50,type="l") # plots the posterior mean of the x variables
+plot(years, post_climate_50*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
 
 
 ## Create series for multiple trees with the same climate
@@ -611,5 +683,5 @@ sqrt(mean(res2))
 
 ## Partial Samples (not near pith) - maybe move this to own repository using the package and separate from the vignette
 
-Simulate all tree growth using a biological growth model but then cut off the samples to more recent years due to things like heart rot, alternative growth forms, and missing the pith. See how different models assuming different growth (e.g. negex, spline, linear, mean) recover the data and reconstruct climate.
+# Simulate all tree growth using a biological growth model but then cut off the samples to more recent years due to things like heart rot, alternative growth forms, and missing the pith. See how different models assuming different growth (e.g. negex, spline, linear, mean) recover the data and reconstruct climate.
 
