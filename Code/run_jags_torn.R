@@ -59,6 +59,9 @@ years <- unique(year)
 ##### dplR chronology #####
 
 library(dplR)
+y_detrend <- detrend(as.data.frame(t(y_orig)), method = "ModNegExp", return.info = TRUE)
+y_detrend$model.info$V1$ModNegExp$coefs
+
 y_detrend <- detrend(as.data.frame(t(y_orig)), method = "Spline")
 
 y_crn <- chron(y_detrend, prefix = "HUR", prewhiten = FALSE)
