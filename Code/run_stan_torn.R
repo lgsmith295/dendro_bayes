@@ -138,7 +138,8 @@ df_miss <- df_full %>%
 
 dat_stan <- list(N_obs = nrow(df_obs),
                  x_obs = df_obs$x_s,
-                 N_miss = )
+                 N_miss = fuck fuck fuck, # problem in estimating the same values of climate many times
+                 log_y = df_full$log_y)
 
 m2_nc_data <- list(y = log_y, 
                    f = f, 
