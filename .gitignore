@@ -11,6 +11,9 @@ Presentations/
 .dropbox
 !Data/
 Data/*
+!Data/az_nm/
+Data/az_nm/*
 !Data/az_nm/raw_correlated_2904.RData
-!Data/annual_ppt_cm.RData
-!Data/Tornestask
+!Data/az_nm/annual_ppt_cm.RData
+!Data/Tornetrask/
+!Data/Tornetrask/*
