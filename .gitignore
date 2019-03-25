@@ -9,4 +9,8 @@ Results/
 RAW/
 Presentations/
 .dropbox
-Data/
+!Data/
+Data/*
+!Data/az_nm/raw_correlated_2904.RData
+!Data/annual_ppt_cm.RData
+!Data/Tornestask
