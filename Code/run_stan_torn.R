@@ -77,8 +77,6 @@ for(i in 1:M) {
   l[i] <- max(tmp)
 }
 
-years <- unique(year)
-
 #### Does creating a standard chronology FORCE the climate reconstruction to be (normally) distributed with fluctuations around a mean????? Over flatten??? #####
 
 ########## Run Models ###########
@@ -124,12 +122,6 @@ initialize_m2_nc = function(){
               sd_x = sd_x))
 }
 
-int<lower = 0> N_obs;   // observations on x (climate)
-vector[N_obs] x_obs;
-int<lower = 0> N_miss; // missing observations on x to estimate
-vector[N_obs + N_miss] log_y;
-vector[N_obs + N_miss] age;
-
 df_obs <- df_full %>%
   filter(x_obs == 1)
 
@@ -138,16 +130,15 @@ df_miss <- df_full %>%
 
 dat_stan <- list(N_obs = nrow(df_obs),
                  x_obs = df_obs$x_s,
-                 N_miss = fuck fuck fuck, # problem in estimating the same values of climate many times
-                 log_y = df_full$log_y)
+                 N_miss = nrow(df_miss), # problem in estimating the same values of climate many times
+                 log_y = df_full$log_y,
+                 M = M,
+                 N = nrow(df_full),
+                 tree_id = df_full$tree_id,
+                 year = df_full$year_index,
+                 age = df_full$age)
 
-m2_nc_data <- list(y = log_y, 
-                   f = f, 
-                   l = l, 
-                   M = M, 
-                   Tea = Tea, 
-                   a = a_use, 
-                   # v = 410, # or 320 
-                   x = x_use)
 
-params <- c("x", "mu_a0", "mu_a1", "sd_a0", "sd_a1", "beta0", "sd_eta", "sd_x", "sd_y")
+params <- c("x", "mu_a0", "mu_a1", "sd_a0", "sd_a1", "beta0", "sd_eta", "sd_x", "sd_y", "sigma_y")
+
+m_negexp_linear <- stan(file = "Code/Stan/negexp_linear.stan", data = dat_stan, pars = params)

@@ -8,17 +8,19 @@ data {
 
   // I'm not really sure what these are
   int<lower = 0> M; // number of trees?
-  int<lower = 1, upper = M> tree_ID[N];
+  int<lower = 0> N;
+  int<lower = 1, upper = M> tree_id[N];
+  int<lower = 1, upper = N> year[N];
 }
 transformed data {
-  int N = N_obs + N_miss;
+  // int N = N_obs + N_miss;
 }
 parameters {
   vector[N_miss] x_miss;
   vector[N] eta_raw;
 
-  vector[M] alpha_0_raw;
-  vector<upper = 0>[M] alpha_1;
+  vector[M] alpha0_raw;
+  vector<upper = 0>[M] alpha1;
   vector<lower = 0>[M] sigma_y;
 
   // need good priors for all of these
@@ -32,11 +34,11 @@ parameters {
   real<lower = 0> sd_a1;
 }
 model {
-  vector[N] x = append_row(x_miss, x_obs);
+  vector[N] x = append_row(x_miss, x_obs)[year];
   vector[N] eta = beta * x + sigma_eta * eta_raw;
   vector[N] alpha0 = mu_a0 + sd_a0 * alpha0_raw; 
  
-  log_y ~ normal(alpha_0[tree_ID] + alpha_1[tree_ID] * age + eta, sigma_y);
+  log_y ~ normal(alpha0[tree_id] + alpha1[tree_id] * age + eta, sigma_y);
   x ~ normal(mu_x, sigma_x);
   eta_raw ~ std_normal(); // implies eta ~ normal(beta * x, sigma_eta);
   
