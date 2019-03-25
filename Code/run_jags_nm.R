@@ -21,6 +21,28 @@ library(ggfan)
 library(parallel)
 library(splines)
 
+source("Code/functions.R")
+
+##### Set conditions #####
+testing <- TRUE
+
+
+if(testing) {
+  nb = 3000
+  ni = 2000
+  nt = 1
+  nc = 3
+} else {
+  nb = 10000
+  ni = 10000
+  nt = 10
+  nc = 4
+}
+
+if(!dir.exists("Results/JAGS")) dir.create("Results/JAGS", recursive = TRUE)
+
+#####
+
 #### Load and Prep Data #####
 # load(file = "Data/itrdb_pilo_mount_washington/pilo_rwl_climate.RData")
 raw <- readRDS(file = "Data/az_nm/raw_correlated_2904.RData")
@@ -123,20 +145,6 @@ a_use <- (age - mean(age, na.rm = TRUE)) / sd(age, na.rm = TRUE)
 K <- length(unique(y_ij$sp_code))
 
 ########## Run Models ###########
-testing <- TRUE
-if(testing) {
-  nb = 3000
-  ni = 2000
-  nt = 1
-  nc = 3
-} else {
-  nb = 10000
-  ni = 10000
-  nt = 10
-  nc = 4
-}
-
-if(!dir.exists("Results/JAGS")) dir.create("Results/JAGS", recursive = TRUE)
 
 # testing using tornetrask from other script
 if(FALSE) {
@@ -223,38 +231,11 @@ sqrt(sum(res2) / length(x_valid_post_m))
 sqrt(mean(res2))
 
 # reconstruction plot
-plot_recon <- function(mcmc, obs = climate, mean = x_mean, sd = x_sd, valid_yrs = NULL) {
-  xidx_m2 = which(substr(varnames(mcmc),1,2)=="x[")
-  temp_df <- as_tibble(t(as.matrix(mcmc[ , xidx_m2])))
-  temp_df <- temp_df %>% 
-    mutate(year = obs$year)
-  
-  temp_df_long <- temp_df %>% 
-    gather(key = sim, value = temp, -year) %>%
-    dplyr::mutate(temp = temp*sd + mean)
-  
-  # Validation plot
-  if(!is.null(valid_yrs)) {
-    temp_valid <- temp_df_long %>%
-      dplyr::filter(year %in% valid_yrs) %>%
-      dplyr::mutate(Value = "estimated")
-    
-    climate_valid <- obs %>%
-      dplyr::mutate(Value = "observed") %>%
-      dplyr::rename(temp = value) %>% # x_full) %>%
-      dplyr::filter(year %in% valid_yrs)
-    
-    g <- ggplot(temp_valid, aes(x = year, y = temp))
-    g <- g + geom_fan() + geom_line(data = climate_valid, aes(year, temp), colour = "red") + ylab("Annual Precipitation (cm)") + xlab("Year") + scale_fill_distiller() + theme_bw()
-  } else {
-    # scaled posterior interval
-    g <- ggplot(temp_df_long, aes(x = year, y = temp))
-    g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab("Annual Precipitation (cm)") + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
-  }
-  return(g)
-}
-
 recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full))
+
+recon2 <- recon + theme_bw_poster()
+ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_norm.pdf", dpi = 300)
+
 
 # consider doing observed values as points to better see where they fall within the credible interval
 recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full), valid_yrs = years[hold_out])
@@ -332,132 +313,6 @@ stopCluster(cl)
 m_negexp_1change <- mcmc.list(out)
 
 plot(m_negexp_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1")])
-par(mfrow = c(1,1))
-x_id_50 = which(substr(varnames(m_negexp_1change),1,2)=="x[") # finds the indices of the x variables
-post_climate_50 = colMeans(as.matrix(m_negexp_1change[,x_id_50])) # finds the posterior mean of the x variables
-# plot(post_climate_50,type="l") # plots the posterior mean of the x variables
-plot(years, post_climate_50*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
-
-# validation
-x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
-x_valid <- x_full[hold_out]
-plot(x_valid, x_valid_post_m, type = "p")
-abline(0, 1, col = "red")
-cor(x_valid, x_valid_post_m)
-
-res2 <- (x_valid_post_m - x_valid)^2
-sqrt(sum(res2) / length(x_valid_post_m))
-sqrt(mean(res2))
-
-# reconstruction plot
-plot_recon <- function(mcmc, obs = climate, mean = x_mean, sd = x_sd, valid_yrs = NULL) {
-  xidx_m2 = which(substr(varnames(mcmc),1,2)=="x[")
-  temp_df <- as_tibble(t(as.matrix(mcmc[ , xidx_m2])))
-  temp_df <- temp_df %>% 
-    mutate(year = obs$year)
-  
-  temp_df_long <- temp_df %>% 
-    gather(key = sim, value = temp, -year) %>%
-    dplyr::mutate(temp = temp*sd + mean)
-  
-  # Validation plot
-  if(!is.null(valid_yrs)) {
-    temp_valid <- temp_df_long %>%
-      dplyr::filter(year %in% valid_yrs) %>%
-      dplyr::mutate(Value = "estimated")
-    
-    climate_valid <- obs %>%
-      dplyr::mutate(Value = "observed") %>%
-      dplyr::rename(temp = value) %>% # x_full) %>%
-      dplyr::filter(year %in% valid_yrs)
-    
-    g <- ggplot(temp_valid, aes(x = year, y = temp))
-    g <- g + geom_fan() + geom_line(data = climate_valid, aes(year, temp), colour = "red") + ylab("Annual Precipitation (cm)") + xlab("Year") + scale_fill_distiller() + theme_bw()
-  } else {
-    # scaled posterior interval
-    g <- ggplot(temp_df_long, aes(x = year, y = temp))
-    g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab("Annual Precipitation (cm)") + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
-  }
-  return(g)
-}
-
-recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full))
-
-# consider doing observed values as points to better see where they fall within the credible interval
-recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full), valid_yrs = years[hold_out])
-
-## any better than random points around the mean?
-
-
-# recon + geom_smooth(se = FALSE) # do not do this with the MCMC chains. Maybe smooth through the mean or something else because this will kill the computer.
-
-#####
-
-##### linear detrend 1 changepoint climate - linear error - not working and probably not a great model ####
-
-x_min <- (0 - x_mean) / x_sd # value of x on standardized scale when climate = 0
-
-initialize_m2_nc = function(){
-  alpha0 = rnorm(M, rowMeans(y_std, na.rm=TRUE), 0.5)
-  alpha1 = -rlnorm(M, -1, 1)
-  sd_y = rlnorm(M, 0, 0.5) 
-  mu_a0 = mean(alpha0)
-  mu_a1 = mean(alpha1)
-  sd_a0 = sd(alpha0)
-  sd_a1 = sd(alpha1)
-  eta = matrix(rnorm(Tea*K, 0, 1), Tea, K)
-  beta0 <- matrix(NA, nrow = K, ncol = 2)
-  for(k in 1:K) {
-    beta0[k, 1] = 0
-    beta0[k, 2] = rnorm(1, 0.5, 0.1)
-    #   sd_eta[k] = sd(eta[ , k])
-  }
-  sd_eta = runif(K, 0.2, 0.3)
-  sd_x = rlnorm(1, 0, 1) 
-  return(list(sd_y = sd_y,
-              alpha0 = alpha0,
-              alpha1 = alpha1,
-              # mu_a0 = mu_a0,
-              # mu_a1 = mu_a1,
-              # sd_a0 = sd_a0,
-              # sd_a1 = sd_a1,
-              sd_eta = sd_eta,
-              beta0 = beta0,
-              sd_x = sd_x))
-}
-
-m2_nc_data <- list(y = y_std, 
-                   f = f, 
-                   l = l, 
-                   M = M, 
-                   Tea = Tea, 
-                   a = a_use,
-                   K = K,
-                   species = species,
-                   x_min = x_min,
-                   # v = 410, # or 320 
-                   x = x_use)
-
-params <- c("x", "beta0", "sd_eta", "sd_x", "sd_y", "x_1")
-
-cl <- makeCluster(nc)                       # Request # cores
-clusterExport(cl, c("m2_nc_data", "initialize_m2_nc", "params", "M", "f", "l", "K", "Tea", "a_use", "y_std", "x_use", "x_min", "nb", "ni", "nt", "K", "species"))
-clusterSetRNGStream(cl = cl, 8675301)
-system.time({ 
-  out <- clusterEvalQ(cl, {
-    library(rjags)
-    jm <- jags.model("Code/JAGS/negexp_1changept_multispp.txt", m2_nc_data, initialize_m2_nc, n.adapt=nb, n.chains=1) # Compile model and run burnin
-    out <- coda.samples(jm, params, n.iter=ni, thin=nt) # Sample from posterior distribution
-    return(as.mcmc(out))
-  })
-}) # 
-
-stopCluster(cl)
-
-# Results
-m_linear_1change <- mcmc.list(out)
-
-plot(m_linear_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1")])
 par(mfrow = c(1,1))
 x_id_50 = which(substr(varnames(m_negexp_1change),1,2)=="x[") # finds the indices of the x variables
 post_climate_50 = colMeans(as.matrix(m_negexp_1change[,x_id_50])) # finds the posterior mean of the x variables
@@ -699,215 +554,347 @@ ggsave(filename = "Results/Figures/torn_recon_spl50_valid_back.tiff", plot = rec
 
 #####
 
-##### negexp detrend with power law climate ####
 
-# negExp (log-linear)
-m2_nc_data <- list(y = log_y, # log_y, # try with linear scale first
-                   f = f, 
-                   l = l, 
-                   M = M, 
-                   Tea = Tea, 
-                   a = a_use,
-                   K = K,
-                   species = species,
-                   # v = 410, # or 320 
-                   x = log(x_full)) # power law with decimals needs positive values of X
-
-initialize_m2_nc = function(){
-  alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25) # log_y
-  alpha1 = -rlnorm(M, -1, 0.25)
-  sd_y = rlnorm(M, 0, 1) 
-  mu_a0 = mean(alpha0)
-  mu_a1 = mean(alpha1)
-  sd_a0 = sd(alpha0)
-  sd_a1 = sd(alpha1)
-  eta = matrix(rnorm(Tea*K, 0, 0.25), Tea, K)
-  # for(k in 1:K) {
-  #   sd_eta[k] = sd(eta[ , k])
-  # }
-  sd_eta = runif(K, 0.2, 0.3)
-  beta0 = rnorm(K, 0.5, 0.1)
-  theta = runif(K, 0.3, 0.7)
-  sd_x = rlnorm(1, 0, 1) 
-  return(list(sd_y = sd_y,
-              alpha0 = alpha0,
-              alpha1 = alpha1,
-              # mu_a0 = mu_a0,
-              # mu_a1 = mu_a1,
-              # sd_a0 = sd_a0,
-              # sd_a1 = sd_a1,
-              sd_eta = sd_eta,
-              beta0 = beta0,
-              theta = theta,
-              sd_x = sd_x))
-}
-
-# Linear
-
-library(nlme)
-lx <- log(x_full)
-df1 <- data.frame(y1 = as.numeric(y_orig[1, ]), y20 = as.numeric(y_orig[2, ]), log_y = log(y_orig[1, ]+0.001), lx = lx) %>%
-  drop_na()
-
-lm1 <- lm(y1 ~ 1 + lx, data = df1)
-summary(lm1)
-plot(fitted(lm1), df1$y1)
-abline(0, 1)
-
-pl1 <- nls(y1 ~ k + a * lx ^ b, df1) #, start=c(a=1, b=1, k=5))
-summary(pl1)
-plot(pl1)
-plot(fitted(pl1), df1$y)
-abline(0, 1)
-
-plot(exp(df1$lx), fitted(pl1))
-
-pl20 <- nls(y20 ~ k + a * lx ^ b, df1) #, start=c(a=1, b=1, k=5))
-summary(pl20)
-
-pl1_log <- nls(log_y ~ k + a * lx ^ b, df1) #, start=c(a=1, b=1, k=5))
-summary(pl1)
-plot(pl1)
-plot(fitted(pl1), df1$y)
-abline(0, 1)
-
-m2_nc_data <- list(y = y_orig, # log_y, # try with linear scale first
-                   f = f, 
-                   l = l, 
-                   M = M, 
-                   Tea = Tea, 
-                   a = a_use,
-                   K = K,
-                   species = species,
-                   # v = 410, # or 320 
-                   x = log(x_full)) # power law with decimals needs positive values of X
-
-initialize_m2_nc = function(){
-  alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25) # log_y
-  alpha1 = runif(M, 0, 0.1)
-  sd_y = rlnorm(M, 0, 1) 
-  mu_a0 = mean(alpha0)
-  mu_a1 = mean(alpha1)
-  sd_a0 = sd(alpha0)
-  sd_a1 = sd(alpha1)
-  eta = matrix(rnorm(Tea*K, 0, 0.25), Tea, K)
-  # for(k in 1:K) {
-  #   sd_eta[k] = sd(eta[ , k])
-  # }
-  sd_eta = runif(K, 0.2, 0.3)
-  beta0 = rnorm(K, 0.2, 0.05)
-  # theta = runif(K, 1, 1.5)
-  theta = runif(K, 1, 1.5)
-  sd_x = rlnorm(1, log(x_obs), 0.1) 
- # x = c(rep(mean(log(x_full), na.rm = T), times = 1895), log(x_obs))
-  return(list(
-              alpha0 = alpha0,
-              alpha1 = alpha1,
-              # mu_a0 = mu_a0,
-              # mu_a1 = mu_a1,
-              # sd_a0 = sd_a0,
-              # sd_a1 = sd_a1,
-              sd_eta = sd_eta,
-              beta0 = beta0,
-             theta = theta,
-            # x = x,
-              # sd_x = sd_x,
-             sd_y = sd_y))
-}
-
-params <- c("x", "beta0", "theta", "sd_eta", "sd_x", "sd_y")
-
-cl <- makeCluster(nc)                       # Request # cores
-clusterExport(cl, c("m2_nc_data", "initialize_m2_nc", "params", "M", "f", "l", "K", "Tea", "a_use", "log_y", "x_use", "nb", "ni", "nt", "K", "species", "x_obs", "x_full", "y_orig"))
-clusterSetRNGStream(cl = cl, 8675301)
-system.time({ 
-  out <- clusterEvalQ(cl, {
-    library(rjags)
-    jm <- jags.model("Code/JAGS/negexp_power_multispp.txt", m2_nc_data, initialize_m2_nc, n.adapt=nb, n.chains=1) # Compile model and run burnin
-    out <- coda.samples(jm, params, n.iter=ni, thin=nt) # Sample from posterior distribution
-    return(as.mcmc(out))
-  })
-}) # 
-
-stopCluster(cl)
-
-# Results
-m_negexp_power <- mcmc.list(out)
-
-plot(m_negexp_power[ ,c("sd_eta", "sd_x", "beta0")])
-plot(m_negexp_power[ ,c("sd_eta[1]", "sd_x", "beta0[1]")])
-plot(m_negexp_power[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]")])
-
-plot(m_negexp_power[ ,c("sd_eta", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]")])
-par(mfrow = c(1,1))
-x_id_50 = which(substr(varnames(m_negexp_power),1,2)=="x[") # finds the indices of the x variables
-post_climate_50 = colMeans(as.matrix(m_negexp_power[,x_id_50])) # finds the posterior mean of the x variables
-plot(post_climate_50,type="l") # plots the posterior mean of the x variables
-plot(years, exp(post_climate_50),type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
-
-# validation
-x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
-x_valid <- x_full[hold_out]
-plot(x_valid, x_valid_post_m, type = "p")
-abline(0, 1, col = "red")
-cor(x_valid, x_valid_post_m)
-
-res2 <- (x_valid_post_m - x_valid)^2
-sqrt(sum(res2) / length(x_valid_post_m))
-sqrt(mean(res2))
-
-# reconstruction plot
-plot_recon <- function(mcmc, obs = climate, mean = x_mean, sd = x_sd, valid_yrs = NULL) {
-  xidx_m2 = which(substr(varnames(mcmc),1,2)=="x[")
-  temp_df <- as_tibble(t(as.matrix(mcmc[ , xidx_m2])))
-  temp_df <- temp_df %>% 
-    mutate(year = obs$year)
-  
-  temp_df_long <- temp_df %>% 
-    gather(key = sim, value = temp, -year) %>%
-    dplyr::mutate(temp = temp*sd + mean)
-  
-  # Validation plot
-  if(!is.null(valid_yrs)) {
-    temp_valid <- temp_df_long %>%
-      dplyr::filter(year %in% valid_yrs) %>%
-      dplyr::mutate(Value = "estimated")
-    
-    climate_valid <- obs %>%
-      dplyr::mutate(Value = "observed") %>%
-      dplyr::rename(temp = value) %>% # x_full) %>%
-      dplyr::filter(year %in% valid_yrs)
-    
-    g <- ggplot(temp_valid, aes(x = year, y = temp))
-    g <- g + geom_fan() + geom_line(data = climate_valid, aes(year, temp), colour = "red") + ylab("Annual Precipitation (cm)") + xlab("Year") + scale_fill_distiller() + theme_bw()
-  } else {
-    # scaled posterior interval
-    g <- ggplot(temp_df_long, aes(x = year, y = temp))
-    g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab("Annual Precipitation (cm)") + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
-  }
-  return(g)
-}
-
-recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full))
-
-# consider doing observed values as points to better see where they fall within the credible interval
-recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full), valid_yrs = years[hold_out])
-
-## any better than random points around the mean?
-
-
-# recon + geom_smooth(se = FALSE) # do not do this with the MCMC chains. Maybe smooth through the mean or something else because this will kill the computer.
-
-#####
-
-###### tree response #####
-# tree response to precip nonlinear - logistic? - currently assuming exponential (log-linear)?
-###########
 
 
 ####### pre-whitening and re-reddening - AR model? #####
 
-###########
+##### Extra ######
 
+if(testing) {
+  
+  ##### linear detrend 1 changepoint climate - linear error - not working and probably not a great model ####
+  
+  x_min <- (0 - x_mean) / x_sd # value of x on standardized scale when climate = 0
+  
+  initialize_m2_nc = function(){
+    alpha0 = rnorm(M, rowMeans(y_std, na.rm=TRUE), 0.5)
+    alpha1 = -rlnorm(M, -1, 1)
+    sd_y = rlnorm(M, 0, 0.5) 
+    mu_a0 = mean(alpha0)
+    mu_a1 = mean(alpha1)
+    sd_a0 = sd(alpha0)
+    sd_a1 = sd(alpha1)
+    eta = matrix(rnorm(Tea*K, 0, 1), Tea, K)
+    beta0 <- matrix(NA, nrow = K, ncol = 2)
+    for(k in 1:K) {
+      beta0[k, 1] = 0
+      beta0[k, 2] = rnorm(1, 0.5, 0.1)
+      #   sd_eta[k] = sd(eta[ , k])
+    }
+    sd_eta = runif(K, 0.2, 0.3)
+    sd_x = rlnorm(1, 0, 1) 
+    return(list(sd_y = sd_y,
+                alpha0 = alpha0,
+                alpha1 = alpha1,
+                # mu_a0 = mu_a0,
+                # mu_a1 = mu_a1,
+                # sd_a0 = sd_a0,
+                # sd_a1 = sd_a1,
+                sd_eta = sd_eta,
+                beta0 = beta0,
+                sd_x = sd_x))
+  }
+  
+  m2_nc_data <- list(y = y_std, 
+                     f = f, 
+                     l = l, 
+                     M = M, 
+                     Tea = Tea, 
+                     a = a_use,
+                     K = K,
+                     species = species,
+                     x_min = x_min,
+                     # v = 410, # or 320 
+                     x = x_use)
+  
+  params <- c("x", "beta0", "sd_eta", "sd_x", "sd_y", "x_1")
+  
+  cl <- makeCluster(nc)                       # Request # cores
+  clusterExport(cl, c("m2_nc_data", "initialize_m2_nc", "params", "M", "f", "l", "K", "Tea", "a_use", "y_std", "x_use", "x_min", "nb", "ni", "nt", "K", "species"))
+  clusterSetRNGStream(cl = cl, 8675301)
+  system.time({ 
+    out <- clusterEvalQ(cl, {
+      library(rjags)
+      jm <- jags.model("Code/JAGS/negexp_1changept_multispp.txt", m2_nc_data, initialize_m2_nc, n.adapt=nb, n.chains=1) # Compile model and run burnin
+      out <- coda.samples(jm, params, n.iter=ni, thin=nt) # Sample from posterior distribution
+      return(as.mcmc(out))
+    })
+  }) # 
+  
+  stopCluster(cl)
+  
+  # Results
+  m_linear_1change <- mcmc.list(out)
+  
+  plot(m_linear_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1")])
+  par(mfrow = c(1,1))
+  x_id_50 = which(substr(varnames(m_negexp_1change),1,2)=="x[") # finds the indices of the x variables
+  post_climate_50 = colMeans(as.matrix(m_negexp_1change[,x_id_50])) # finds the posterior mean of the x variables
+  # plot(post_climate_50,type="l") # plots the posterior mean of the x variables
+  plot(years, post_climate_50*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
+  
+  # validation
+  x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+  x_valid <- x_full[hold_out]
+  plot(x_valid, x_valid_post_m, type = "p")
+  abline(0, 1, col = "red")
+  cor(x_valid, x_valid_post_m)
+  
+  res2 <- (x_valid_post_m - x_valid)^2
+  sqrt(sum(res2) / length(x_valid_post_m))
+  sqrt(mean(res2))
+  
+  # reconstruction plot
+  plot_recon <- function(mcmc, obs = climate, mean = x_mean, sd = x_sd, valid_yrs = NULL) {
+    xidx_m2 = which(substr(varnames(mcmc),1,2)=="x[")
+    temp_df <- as_tibble(t(as.matrix(mcmc[ , xidx_m2])))
+    temp_df <- temp_df %>% 
+      mutate(year = obs$year)
+    
+    temp_df_long <- temp_df %>% 
+      gather(key = sim, value = temp, -year) %>%
+      dplyr::mutate(temp = temp*sd + mean)
+    
+    # Validation plot
+    if(!is.null(valid_yrs)) {
+      temp_valid <- temp_df_long %>%
+        dplyr::filter(year %in% valid_yrs) %>%
+        dplyr::mutate(Value = "estimated")
+      
+      climate_valid <- obs %>%
+        dplyr::mutate(Value = "observed") %>%
+        dplyr::rename(temp = value) %>% # x_full) %>%
+        dplyr::filter(year %in% valid_yrs)
+      
+      g <- ggplot(temp_valid, aes(x = year, y = temp))
+      g <- g + geom_fan() + geom_line(data = climate_valid, aes(year, temp), colour = "red") + ylab("Annual Precipitation (cm)") + xlab("Year") + scale_fill_distiller() + theme_bw()
+    } else {
+      # scaled posterior interval
+      g <- ggplot(temp_df_long, aes(x = year, y = temp))
+      g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab("Annual Precipitation (cm)") + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
+    }
+    return(g)
+  }
+  
+  recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full))
+  
+  # consider doing observed values as points to better see where they fall within the credible interval
+  recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full), valid_yrs = years[hold_out])
+  
+  ## any better than random points around the mean?
+  
+  
+  # recon + geom_smooth(se = FALSE) # do not do this with the MCMC chains. Maybe smooth through the mean or something else because this will kill the computer.
+  
+  #####
+  
+  
+  ##### negexp detrend with power law climate ####
+  
+  # negExp (log-linear)
+  m2_nc_data <- list(y = log_y, # log_y, # try with linear scale first
+                     f = f, 
+                     l = l, 
+                     M = M, 
+                     Tea = Tea, 
+                     a = a_use,
+                     K = K,
+                     species = species,
+                     # v = 410, # or 320 
+                     x = log(x_full)) # power law with decimals needs positive values of X
+  
+  initialize_m2_nc = function(){
+    alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25) # log_y
+    alpha1 = -rlnorm(M, -1, 0.25)
+    sd_y = rlnorm(M, 0, 1) 
+    mu_a0 = mean(alpha0)
+    mu_a1 = mean(alpha1)
+    sd_a0 = sd(alpha0)
+    sd_a1 = sd(alpha1)
+    eta = matrix(rnorm(Tea*K, 0, 0.25), Tea, K)
+    # for(k in 1:K) {
+    #   sd_eta[k] = sd(eta[ , k])
+    # }
+    sd_eta = runif(K, 0.2, 0.3)
+    beta0 = rnorm(K, 0.5, 0.1)
+    theta = runif(K, 0.3, 0.7)
+    sd_x = rlnorm(1, 0, 1) 
+    return(list(sd_y = sd_y,
+                alpha0 = alpha0,
+                alpha1 = alpha1,
+                # mu_a0 = mu_a0,
+                # mu_a1 = mu_a1,
+                # sd_a0 = sd_a0,
+                # sd_a1 = sd_a1,
+                sd_eta = sd_eta,
+                beta0 = beta0,
+                theta = theta,
+                sd_x = sd_x))
+  }
+  
+  # Linear
+  
+  library(nlme)
+  lx <- log(x_full)
+  df1 <- data.frame(y1 = as.numeric(y_orig[1, ]), y20 = as.numeric(y_orig[2, ]), log_y = log(y_orig[1, ]+0.001), lx = lx) %>%
+    drop_na()
+  
+  lm1 <- lm(y1 ~ 1 + lx, data = df1)
+  summary(lm1)
+  plot(fitted(lm1), df1$y1)
+  abline(0, 1)
+  
+  pl1 <- nls(y1 ~ k + a * lx ^ b, df1) #, start=c(a=1, b=1, k=5))
+  summary(pl1)
+  plot(pl1)
+  plot(fitted(pl1), df1$y)
+  abline(0, 1)
+  
+  plot(exp(df1$lx), fitted(pl1))
+  
+  pl20 <- nls(y20 ~ k + a * lx ^ b, df1) #, start=c(a=1, b=1, k=5))
+  summary(pl20)
+  
+  pl1_log <- nls(log_y ~ k + a * lx ^ b, df1) #, start=c(a=1, b=1, k=5))
+  summary(pl1)
+  plot(pl1)
+  plot(fitted(pl1), df1$y)
+  abline(0, 1)
+  
+  m2_nc_data <- list(y = y_orig, # log_y, # try with linear scale first
+                     f = f, 
+                     l = l, 
+                     M = M, 
+                     Tea = Tea, 
+                     a = a_use,
+                     K = K,
+                     species = species,
+                     # v = 410, # or 320 
+                     x = log(x_full)) # power law with decimals needs positive values of X
+  
+  initialize_m2_nc = function(){
+    alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25) # log_y
+    alpha1 = runif(M, 0, 0.1)
+    sd_y = rlnorm(M, 0, 1) 
+    mu_a0 = mean(alpha0)
+    mu_a1 = mean(alpha1)
+    sd_a0 = sd(alpha0)
+    sd_a1 = sd(alpha1)
+    eta = matrix(rnorm(Tea*K, 0, 0.25), Tea, K)
+    # for(k in 1:K) {
+    #   sd_eta[k] = sd(eta[ , k])
+    # }
+    sd_eta = runif(K, 0.2, 0.3)
+    beta0 = rnorm(K, 0.2, 0.05)
+    # theta = runif(K, 1, 1.5)
+    theta = runif(K, 1, 1.5)
+    sd_x = rlnorm(1, log(x_obs), 0.1) 
+    # x = c(rep(mean(log(x_full), na.rm = T), times = 1895), log(x_obs))
+    return(list(
+      alpha0 = alpha0,
+      alpha1 = alpha1,
+      # mu_a0 = mu_a0,
+      # mu_a1 = mu_a1,
+      # sd_a0 = sd_a0,
+      # sd_a1 = sd_a1,
+      sd_eta = sd_eta,
+      beta0 = beta0,
+      theta = theta,
+      # x = x,
+      # sd_x = sd_x,
+      sd_y = sd_y))
+  }
+  
+  params <- c("x", "beta0", "theta", "sd_eta", "sd_x", "sd_y")
+  
+  cl <- makeCluster(nc)                       # Request # cores
+  clusterExport(cl, c("m2_nc_data", "initialize_m2_nc", "params", "M", "f", "l", "K", "Tea", "a_use", "log_y", "x_use", "nb", "ni", "nt", "K", "species", "x_obs", "x_full", "y_orig"))
+  clusterSetRNGStream(cl = cl, 8675301)
+  system.time({ 
+    out <- clusterEvalQ(cl, {
+      library(rjags)
+      jm <- jags.model("Code/JAGS/negexp_power_multispp.txt", m2_nc_data, initialize_m2_nc, n.adapt=nb, n.chains=1) # Compile model and run burnin
+      out <- coda.samples(jm, params, n.iter=ni, thin=nt) # Sample from posterior distribution
+      return(as.mcmc(out))
+    })
+  }) # 
+  
+  stopCluster(cl)
+  
+  # Results
+  m_negexp_power <- mcmc.list(out)
+  
+  plot(m_negexp_power[ ,c("sd_eta", "sd_x", "beta0")])
+  plot(m_negexp_power[ ,c("sd_eta[1]", "sd_x", "beta0[1]")])
+  plot(m_negexp_power[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]")])
+  
+  plot(m_negexp_power[ ,c("sd_eta", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]")])
+  par(mfrow = c(1,1))
+  x_id_50 = which(substr(varnames(m_negexp_power),1,2)=="x[") # finds the indices of the x variables
+  post_climate_50 = colMeans(as.matrix(m_negexp_power[,x_id_50])) # finds the posterior mean of the x variables
+  plot(post_climate_50,type="l") # plots the posterior mean of the x variables
+  plot(years, exp(post_climate_50),type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
+  
+  # validation
+  x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+  x_valid <- x_full[hold_out]
+  plot(x_valid, x_valid_post_m, type = "p")
+  abline(0, 1, col = "red")
+  cor(x_valid, x_valid_post_m)
+  
+  res2 <- (x_valid_post_m - x_valid)^2
+  sqrt(sum(res2) / length(x_valid_post_m))
+  sqrt(mean(res2))
+  
+  # reconstruction plot
+  plot_recon <- function(mcmc, obs = climate, mean = x_mean, sd = x_sd, valid_yrs = NULL) {
+    xidx_m2 = which(substr(varnames(mcmc),1,2)=="x[")
+    temp_df <- as_tibble(t(as.matrix(mcmc[ , xidx_m2])))
+    temp_df <- temp_df %>% 
+      mutate(year = obs$year)
+    
+    temp_df_long <- temp_df %>% 
+      gather(key = sim, value = temp, -year) %>%
+      dplyr::mutate(temp = temp*sd + mean)
+    
+    # Validation plot
+    if(!is.null(valid_yrs)) {
+      temp_valid <- temp_df_long %>%
+        dplyr::filter(year %in% valid_yrs) %>%
+        dplyr::mutate(Value = "estimated")
+      
+      climate_valid <- obs %>%
+        dplyr::mutate(Value = "observed") %>%
+        dplyr::rename(temp = value) %>% # x_full) %>%
+        dplyr::filter(year %in% valid_yrs)
+      
+      g <- ggplot(temp_valid, aes(x = year, y = temp))
+      g <- g + geom_fan() + geom_line(data = climate_valid, aes(year, temp), colour = "red") + ylab("Annual Precipitation (cm)") + xlab("Year") + scale_fill_distiller() + theme_bw()
+    } else {
+      # scaled posterior interval
+      g <- ggplot(temp_df_long, aes(x = year, y = temp))
+      g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab("Annual Precipitation (cm)") + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
+    }
+    return(g)
+  }
+  
+  recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full))
+  
+  # consider doing observed values as points to better see where they fall within the credible interval
+  recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full), valid_yrs = years[hold_out])
+  
+  ## any better than random points around the mean?
+  
+  
+  # recon + geom_smooth(se = FALSE) # do not do this with the MCMC chains. Maybe smooth through the mean or something else because this will kill the computer.
+  
+  #####
+  
+  ###### tree response #####
+  # tree response to precip nonlinear - logistic? - currently assuming exponential (log-linear)?
+  ###########
+  
+}
 
 
