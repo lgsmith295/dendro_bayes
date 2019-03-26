@@ -139,6 +139,11 @@ dat_stan <- list(N_obs = nrow(df_obs),
                  age = df_full$age)
 
 
-params <- c("x", "mu_a0", "mu_a1", "sd_a0", "sd_a1", "beta0", "sd_eta", "sd_x", "sd_y", "sigma_y")
+params <- c("x_miss", "mu_a0", "mu_a1", "sd_a0", "sd_a1", "beta0", "sd_eta", "sd_x", "sd_y")
 
-m_negexp_linear <- stan(file = "Code/Stan/negexp_linear.stan", data = dat_stan, pars = params)
+m_negexp_linear <- stan(file = "Code/Stan/negexp_linear.stan", 
+                        data = dat_stan, 
+                        pars = params,
+                        iter = 1000,
+                        warmup = 500,
+                        thin = 1)
