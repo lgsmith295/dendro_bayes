@@ -196,14 +196,14 @@ sqrt(mean(res2))
 recon <- plot_recon(outM2_nc, obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_post_negexp_linear.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
 recon <- plot_recon(outM2_nc, obs = data.frame(year = years, value = x_full))
-recon2 <- recon + theme_bw_poster() # + ggtitle("NegExp with Linear Climate")
+recon2 <- recon + theme_bw_poster() + ylim(0, 20) # + ggtitle("NegExp with Linear Climate")
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_norm_poster.pdf", dpi = 300)
 recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_norm_paper.pdf", dpi = 1000)
 
 recon_valid <- plot_recon(outM2_nc, valid_yrs = year[hold_out], obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_negexp_linear_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
-recon_valid2 <- recon_valid + theme_bw_poster()
+recon_valid2 <- recon_valid + theme_bw_poster() + ylim(0, 20)
 ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/negexp_norm_poster_valid.pdf", dpi = 300) # + ggtitle("NegExp with Linear Climate")
 
 # Validation plot
@@ -427,14 +427,14 @@ abline(0, 1, col = "red")
 recon <- plot_recon(out_detrend_spl, obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_post_spline_linear.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
 recon <- plot_recon(out_detrend_spl, obs = data.frame(year = years, value = x_full))
-recon2 <- recon + theme_bw_poster() # # + ggtitle("Cubic Spline with Linear Climate")
+recon2 <- recon + theme_bw_poster() + ylim(0, 20) # # + ggtitle("Cubic Spline with Linear Climate")
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/spline_norm_poster.pdf", dpi = 300)
 recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/spline_norm_paper.pdf", dpi = 1000)
 
 recon_valid <- plot_recon(out_detrend_spl, valid_yrs = year[hold_out], obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_spline_linear_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
-recon_valid2 <- recon_valid + theme_bw_poster()
+recon_valid2 <- recon_valid + theme_bw_poster() + ylim(0, 20)
 ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/spline_norm_poster_valid.pdf", dpi = 300)
 
 
@@ -498,14 +498,14 @@ plot(year,postxm*x_sd + x_mean,type="l") # plots the posterior mean of the x var
 recon <- plot_recon(our_ar, obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_post_negexp_linear_ar.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
 recon <- plot_recon(our_ar, obs = data.frame(year = years, value = x_full))
-recon2 <- recon + theme_bw_poster()
+recon2 <- recon + theme_bw_poster() + ylim(0, 20)
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_linear_ar_poster.pdf", dpi = 300)
 recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_linear_ar_paper.pdf", dpi = 1000)
 
 recon_valid <- plot_recon(our_ar, valid_yrs = year[hold_out], obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_spline_linear_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
-recon_valid2 <- recon_valid + theme_bw_poster()
+recon_valid2 <- recon_valid + theme_bw_poster() + ylim(0, 20)
 ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/negexp_linear_ar_poster_valid.pdf", dpi = 300)
 
 rm(out)
@@ -597,14 +597,14 @@ sqrt(mean(res2))
 recon <- plot_recon(out_m_climate_spline_25, obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_post_negexp_spl25.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
 recon <- plot_recon(out_m_climate_spline_25, obs = data.frame(year = years, value = x_full))
-recon2 <- recon + theme_bw_poster()
+recon2 <- recon + theme_bw_poster() + ylim(0, 20)
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_spl25_poster.pdf", dpi = 300)
 recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_spl25_paper.pdf", dpi = 1000)
 
 recon_valid <- plot_recon(out_m_climate_spline_25, valid_yrs = year[hold_out], obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_negexp_spl25_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
-recon_valid2 <- recon_valid + theme_bw_poster()
+recon_valid2 <- recon_valid + theme_bw_poster() + ylim(0, 20)
 ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/negexp_spl25_poster_valid.pdf", dpi = 300)
 
 rm(out)
@@ -700,14 +700,14 @@ sqrt(mean(res2))
 recon <- plot_recon(m_negexp_1change, obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_post_negexp_1change.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
 recon <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full))
-recon2 <- recon + theme_bw_poster()
+recon2 <- recon + theme_bw_poster() + ylim(0, 20)
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_1change_poster.pdf", dpi = 300)
 recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_1change_paper.pdf", dpi = 1000)
 
 recon_valid <- plot_recon(m_negexp_1change, valid_yrs = year[hold_out], obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_negexp_1change_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
-recon_valid2 <- recon_valid + theme_bw_poster()
+recon_valid2 <- recon_valid + theme_bw_poster() + ylim(0, 20)
 ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/negexp_1change_poster_valid.pdf", dpi = 300)
 
 ## any better than random points around the mean?
@@ -806,14 +806,14 @@ ggsave(filename = "Results/Figures/torn_recon_rcs_spl25_valid_back.tiff", plot =
 
 # Reconstruction
 recon <- plot_recon(m_rcs_spline_25, obs = data.frame(year = years, value = x_full))
-recon2 <- recon + theme_bw_poster() # + ggtitle("NegExp RCS with 25-yr Spline Climate")
+recon2 <- recon + theme_bw_poster() + ylim(0, 20) # + ggtitle("NegExp RCS with 25-yr Spline Climate")
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/rcs_spline_25_poster.pdf", dpi = 300)
 recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/rcs_spline_25_paper.pdf", dpi = 1000)
 
 recon_valid <- plot_recon(m_rcs_spline_25, valid_yrs = year[hold_out], obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_rcs_spline_25_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
-recon_valid2 <- recon_valid + theme_bw_poster() # + ggtitle("NegExp RCS with 25-yr Spline Climate")
+recon_valid2 <- recon_valid + theme_bw_poster() + ylim(0, 20) # + ggtitle("NegExp RCS with 25-yr Spline Climate")
 ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/rcs_spline_25_poster_valid.pdf", dpi = 300)
 
 rm(out)
