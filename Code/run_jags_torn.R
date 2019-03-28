@@ -18,6 +18,10 @@ library(ggplot2)
 library(ggfan)
 library(parallel)
 
+source("Code/functions.R")
+
+testing <- TRUE
+
 #### Load and Prep Data #####
 # load data
 a_use <- as.matrix(read.table('Data/Tornetrask/age.txt', header = FALSE))
@@ -55,6 +59,8 @@ for(i in 1:M) {
 
 years <- unique(year)
 
+save(climate_df, years, M, Tea, log_y, x_full, a_use, file = "Results/JAGS/model_prep.RData")
+
 #### Does creating a standard chronology FORCE the climate reconstruction to be (normally) distributed with fluctuations around a mean????? Over flatten??? #####
 
 ##### dplR chronology #####
@@ -78,7 +84,6 @@ y_rcs <- rcs(y_rwl, po = po)
 
 ########## Run Models ###########
 
-testing <- TRUE
 if(testing) {
   nb = 1000
   ni = 1000
@@ -92,6 +97,7 @@ if(testing) {
 }
 
 if(!dir.exists("Results/JAGS")) dir.create("Results/JAGS", recursive = TRUE)
+if(!dir.exists("Results/Figures/JAGS")) dir.create("Results/Figures/JAGS", recursive = TRUE)
 
 ##### negexp detrend linear climate M2-non-centered ####
 
@@ -186,14 +192,19 @@ res2 <- (x_valid_post_m - x_valid)^2
 sqrt(sum(res2) / length(x_valid_post_m))
 sqrt(mean(res2))
 
-source("Code/functions.R")
+# Reconstruction
+recon <- plot_recon(outM2_nc, obs = climate_df)
+ggsave(filename = "Results/Figures/JAGS/torn_recon_post_negexp_linear.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
+recon <- plot_recon(outM2_nc, obs = data.frame(year = years, value = x_full))
+recon2 <- recon + theme_bw_poster() # + ggtitle("NegExp with Linear Climate")
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_norm_poster.pdf", dpi = 300)
+recon2 <- recon + theme_bw_journal()
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_norm_paper.pdf", dpi = 1000)
 
-recon <- plot_recon(outM2_nc)
-ggsave(filename = "Results/Figures/torn_recon_post_negexp_linear.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
-
-recon_valid <- plot_recon(outM2_nc, valid_yrs = year[hold_out])
-ggsave(filename = "Results/Figures/torn_recon_negexp_linear_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
-
+recon_valid <- plot_recon(outM2_nc, valid_yrs = year[hold_out], obs = climate_df)
+ggsave(filename = "Results/Figures/JAGS/torn_recon_negexp_linear_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
+recon_valid2 <- recon_valid + theme_bw_poster()
+ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/negexp_norm_poster_valid.pdf", dpi = 300) # + ggtitle("NegExp with Linear Climate")
 
 # Validation plot
 temp_valid <- temp_df_long %>%
@@ -220,6 +231,10 @@ foo <- outM2_nc %>%
   head(15)
 
 m2_climate <- as.matrix(outM2_nc[, c("x")])
+
+
+rm(out)
+rm(outM2_nc)
 
 #####
 
@@ -300,9 +315,11 @@ data_detrend_spl <- list(y = log_y,
 m_detrend_spl = jags.model('Code/JAGS/detrend_spline.txt', 
                   data = data_detrend_spl, 
                   inits = initialize_detrend_spl, 
-                  n.chains = 3, 
-                  n.adapt = 1000)
-out_detrend_spl = coda.samples(m_detrend_spl, c("x", "beta0", "sd_eta", "sd_x", "sd_y"), 1000) # "alpha0", can monitor alpha0 if want to see the spline for each series but it takes a massive amount of memory (6 GB RAM held in R for 3 chains at 1000 iterations). can't monitor mu, y_rep, or mu_rep without massive memory
+                  n.chains = nc, 
+                  n.adapt = nb)
+out_detrend_spl = coda.samples(m_detrend_spl, c("x", "beta0", "sd_eta", "sd_x", "sd_y"), ni) # "alpha0", can monitor alpha0 if want to see the spline for each series but it takes a massive amount of memory (6 GB RAM held in R for 3 chains at 1000 iterations). can't monitor mu, y_rep, or mu_rep without massive memory
+
+save(out_detrend_spl, file = "Results/JAGS/detrend_spl.RData")
 
 plot(out_detrend_spl[ , c("x[1]", "sd_eta", "sd_x", "beta0")])
 par(mfrow = c(1,1))
@@ -406,140 +423,23 @@ abline(0, 1, col = "red")
 plot(x_full[hold_out], postxm[hold_out]*x_sd + x_mean)
 abline(0, 1, col = "red")
 
-##### climate p-spline - not mixing #####
-library(splines)
+# Reconstruction
+recon <- plot_recon(out_detrend_spl, obs = climate_df)
+ggsave(filename = "Results/Figures/JAGS/torn_recon_post_spline_linear.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
+recon <- plot_recon(out_detrend_spl, obs = data.frame(year = years, value = x_full))
+recon2 <- recon + theme_bw_poster() # # + ggtitle("Cubic Spline with Linear Climate")
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/spline_norm_poster.pdf", dpi = 300)
+recon2 <- recon + theme_bw_journal()
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/spline_norm_paper.pdf", dpi = 1000)
 
-# penalty matrix function
-makeQ = function(degree, K, epsilon=1e-3){
-  x <- diag(K)
-  E <- diff(x, differences=degree)
-  return( t(E) %*% E + x*epsilon)
-} 
-
-# Set up basis function for each tree ring series
-K = 6 # for Q it needs to be the 4 betas for cubic plus start and end node I think
-
-knots <- seq(0, 500, by = 25)
-B <- bs(1:Tea, knots = knots)
-H <- length(knots) + 3
-
-Q <- makeQ(2, K = H) # not sure what the degree is
-# run model
+recon_valid <- plot_recon(out_detrend_spl, valid_yrs = year[hold_out], obs = climate_df)
+ggsave(filename = "Results/Figures/JAGS/torn_recon_spline_linear_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
+recon_valid2 <- recon_valid + theme_bw_poster()
+ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/spline_norm_poster_valid.pdf", dpi = 300)
 
 
-# sam clifford blog
-d <- max(4, floor(Tea/35))
-K <- floor(Tea/d - 1)
-
-bspline <- function(x, K, bdeg=3, cyclic=FALSE, xl=min(x), xr=max(x)){
-  x <- as.matrix(x,ncol=1)
-  
-  ndx <- K - bdeg
-  
-  # as outlined in Eilers and Marx (1996)
-  dx <- (xr - xl) / ndx
-  t <- xl + dx * (-bdeg:(ndx+bdeg))
-  T <- (0 * x + 1) %*% t
-  X <- x %*% (0 * t + 1)
-  P <- (X - T) / dx
-  B <- (T <= X) & (X < (T + dx))
-  r <- c(2:length(t), 1)
-  
-  for (k in 1:bdeg){
-    B <- (P * B + (k + 1 - P) * B[ ,r]) / k; 
-  }
-  
-  B <- B[,1:(ndx+bdeg)]
-  
-  if (cyclic == 1){
-    for (i in 1:bdeg){
-      B[ ,i] <- B[ ,i] + B[ ,K-bdeg+i]    
-    }
-    B <- B[ , 1:(K-bdeg)]
-  }
-  
-  return(B)
-}
-
-B <- bspline(x = 1:500, K = H) #, xl=0, xr=1)
-
-makeQ = function(degree, K, epsilon=1e-3){
-  x <- diag(K)
-  E <- diff(x, differences=degree)
-  return( t(E) %*% E + x*epsilon)
-} 
-
-Q <- makeQ(2, K)
-
-round(eigen(makeQ(2, K))$values, 4)
-
-
-initialize_spl = function(){
-  alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25)
-  alpha1 = -rlnorm(M, -1, 0.25)
-  sd_y = rlnorm(M, 0, 1) 
-  mu_a0 = mean(alpha0)
-  mu_a1 = mean(alpha1)
-  sd_a0 = sd(alpha0)
-  sd_a1 = sd(alpha1)
-  eta = rnorm(Tea, 0, 0.25)
-  sd_eta = sd(eta) 
-  sd_x = rlnorm(1, 0, 1) 
-  return(list(sd_y = sd_y,
-              mu_a0 = mu_a0,
-              mu_a1 = mu_a1,
-              sd_a0 = sd_a0,
-              sd_a1 = sd_a1,
-              sd_eta = sd_eta,
-              sd_x = sd_x))
-}
-
-m_p_spline_25 = jags.model('Code/JAGS/climate_p_spline.txt', 
-                         list(y = log_y, 
-                              f = f, 
-                              l = l, 
-                              M = M, 
-                              Tea = Tea, 
-                              a = a_use, 
-                              x = x_use,
-                              Q = Q,
-                              B = B,
-                              K = K), 
-                         inits = initialize_spl, 
-                         n.chains = 3, 
-                         n.adapt = 1000)
-
-out_p_spline_25 = coda.samples(m_p_spline_25, c("x", "gamma_0", "gamma_00", "lambda_x", "sd_eta", "sd_x", "sd_y"), 1000) # "alpha0", can monitor alpha0 if want to see the spline for each series but it takes a massive amount of memory (6 GB RAM held in R for 3 chains at 1000 iterations). can't monitor mu, y_rep, or mu_rep without massive memory
-
-plot(out_p_spline_25[ , c("x[100]", "sd_eta", "sd_x", "gamma_00", "lambda_x")])
-par(mfrow = c(1,1))
-
-# Quick plot reconstruction
-par(mfrow = c(1,1))
-x_id = which(substr(varnames(out_p_spline_25),1,2)=="x[")
-x_post = as.matrix(out_p_spline_25[ ,x_id])
-x_post_mean <- colMeans(x_post)
-plot(year, x_post_mean*x_sd + x_mean, type="l")
-
-x_post_median <- apply(x_post, 2, median)
-plot(year, x_post_median*x_sd + x_mean, type="l")
-
-plot(x, y_i)
-lines(x, postxm)
-
-# validation
-x_valid_post_m <- postxm_m2[hold_out]*x_sd + x_mean
-x_valid <- x_full[hold_out]
-plot(x_valid, x_valid_post_m, type = "p")
-abline(0, 1, col = "red")
-cor(x_valid, x_valid_post_m)
-
-res2 <- (x_valid_post_m - x_valid)^2
-sqrt(sum(res2) / length(x_valid_post_m))
-sqrt(mean(res2))
-
-
-
+rm(out)
+rm(out_detrend_spl)
 
 #####
 
@@ -583,6 +483,8 @@ m_ar = jags.model('Code/JAGS/linear_ar.txt',
                 n.adapt = 5000)
 our_ar = coda.samples(m_ar, c("x", "mu_a0", "sd_a0", "beta0", "sd_eta", "sd_x", "sd_y", "mean_delta"), 3000)
 
+save(our_ar, file = "Results/JAGS/our_ar.RData")
+
 plot(our_ar[ , c("mu_a0", "sd_a0", "sd_eta", "sd_x", "beta0", "mean_delta")])
 par(mfrow = c(1,1))
 
@@ -592,7 +494,22 @@ postxm = colMeans(as.matrix(our_ar[,xidx])) # finds the posterior mean of the x 
 plot(postxm,type="l") # plots the posterior mean of the x variables
 plot(year,postxm*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
 
+# Reconstruction
+recon <- plot_recon(our_ar, obs = climate_df)
+ggsave(filename = "Results/Figures/JAGS/torn_recon_post_negexp_linear_ar.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
+recon <- plot_recon(our_ar, obs = data.frame(year = years, value = x_full))
+recon2 <- recon + theme_bw_poster()
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_linear_ar_poster.pdf", dpi = 300)
+recon2 <- recon + theme_bw_journal()
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_linear_ar_paper.pdf", dpi = 1000)
 
+recon_valid <- plot_recon(our_ar, valid_yrs = year[hold_out], obs = climate_df)
+ggsave(filename = "Results/Figures/JAGS/torn_recon_spline_linear_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
+recon_valid2 <- recon_valid + theme_bw_poster()
+ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/negexp_linear_ar_poster_valid.pdf", dpi = 300)
+
+rm(out)
+rm(our_ar)
 
 #####
 
@@ -656,6 +573,8 @@ m_spline_25 = jags.model('Code/JAGS/climate_spline.txt',
 
 out_m_climate_spline_25 = coda.samples(m_spline_25, c("x", "mu_a0", "mu_a1", "sd_a0", "sd_a1", "sd_eta", "sd_x", "sd_y", "mu_gamma", "sd_g"), 2000)
 
+save(out_m_climate_spline_25, file = "Results/JAGS/climate_spline_25.RData")
+
 plot(out_m_climate_spline_25[ ,c("mu_a0", "mu_a1", "sd_a0", "sd_a1", "sd_eta", "sd_x")])
 par(mfrow = c(1,1))
 x_idx_25 = which(substr(varnames(out_m_climate_spline_25),1,2)=="x[") # finds the indices of the x variables
@@ -674,202 +593,27 @@ res2 <- (x_valid_post_m - x_valid)^2
 sqrt(sum(res2) / length(x_valid_post_m))
 sqrt(mean(res2))
 
+# Reconstruction
+recon <- plot_recon(out_m_climate_spline_25, obs = climate_df)
+ggsave(filename = "Results/Figures/JAGS/torn_recon_post_negexp_spl25.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
+recon <- plot_recon(out_m_climate_spline_25, obs = data.frame(year = years, value = x_full))
+recon2 <- recon + theme_bw_poster()
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_spl25_poster.pdf", dpi = 300)
+recon2 <- recon + theme_bw_journal()
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_spl25_paper.pdf", dpi = 1000)
 
+recon_valid <- plot_recon(out_m_climate_spline_25, valid_yrs = year[hold_out], obs = climate_df)
+ggsave(filename = "Results/Figures/JAGS/torn_recon_negexp_spl25_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
+recon_valid2 <- recon_valid + theme_bw_poster()
+ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/negexp_spl25_poster_valid.pdf", dpi = 300)
 
-#### climate spline 50 year knots #####
-
-knots <- seq(0, 500, by = 50)
-B <- bs(1:Tea, knots = knots) # neet to sort x_use? then doesn't line up with rest.
-H <- length(knots) + 3
-
-matplot(1:Tea, B, type="l",xlab="Time",ylab="Basis function, Bj(X)",cex.lab=1.5,cex.axis=1.5,lwd=2)
-# d <- max(4, floor(Tea/35))
-# K <- floor(Tea/d - 1)
-
-# visualize priors (D draws from prior distribution)
-D <- 10
-g <- matrix(0, Tea, D)
-
-for(j in 1:D){
-  beta  <- rnorm(length(knots) + 3, 0, 10)
-  g[ , j] <- B%*%beta
-}
-
-matplot(1:500, g, lwd=2, type="l", cex.lab=1.5, cex.axis=1.5)
-
-# run model
-initialize_spl = function(){
-  alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25)
-  alpha1 = -rlnorm(M, -1, 0.25)
-  sd_y = rlnorm(M, 0, 1) 
-  mu_a0 = mean(alpha0)
-  mu_a1 = mean(alpha1)
-  sd_a0 = sd(alpha0)
-  sd_a1 = sd(alpha1)
-  eta = rnorm(Tea, 0, 0.25)
-  sd_eta = sd(eta) 
-  sd_x = rlnorm(1, 0, 1) 
-  return(list(sd_y = sd_y,
-              mu_a0 = mu_a0,
-              mu_a1 = mu_a1,
-              sd_a0 = sd_a0,
-              sd_a1 = sd_a1,
-              sd_eta = sd_eta,
-              sd_x = sd_x))
-}
-
-spl_data <- list(y = log_y, 
-     f = f, 
-     l = l, 
-     M = M, 
-     Tea = Tea, 
-     a = a_use, 
-     x = x_use,
-     B = B,
-     H = H)
-
-params <- c("x", "mu_a0", "mu_a1", "sd_a0", "sd_a1", "sd_eta", "sd_x", "sd_y", "mu_gamma", "sd_g")
-
-cl <- makeCluster(nc)                       # Request # cores
-clusterExport(cl, c("spl_data", "initialize_spl", "params", "M", "f", "l", "Tea", "a_use", "log_y", "x_use", "nb", "ni", "nt"))
-clusterSetRNGStream(cl = cl, 8675302)
-system.time({ 
-  out <- clusterEvalQ(cl, {
-    library(rjags)
-    jm <- jags.model("Code/JAGS/climate_spline.txt", spl_data, initialize_spl, n.adapt=nb, n.chains=1) # Compile model and run burnin
-    out <- coda.samples(jm, params, n.iter=ni, thin=nt) # Sample from posterior distribution
-    return(as.mcmc(out))
-  })
-}) # 
-stopCluster(cl)
-
-# Results
-m_spline_50 <- mcmc.list(out)
-# 
-# m_spline_50 = jags.model('Code/JAGS/climate_spline.txt', 
-#                          list(y = log_y, 
-#                               f = f, 
-#                               l = l, 
-#                               M = M, 
-#                               Tea = Tea, 
-#                               a = a_use, 
-#                               x = x_use,
-#                               B = B,
-#                               H = H), 
-#                          inits = initialize_spl, 
-#                          n.chains = 3, 
-#                          n.adapt = 3000)
-# 
-# out_m_climate_spline_50 = coda.samples(m_spline_50, c("x", "mu_a0", "mu_a1", "sd_a0", "sd_a1", "sd_eta", "sd_x", "sd_y", "mu_gamma", "sd_g"), 2000)
-
-plot(m_spline_50[ ,c("mu_a0", "mu_a1", "sd_a0", "sd_a1", "sd_eta", "sd_x", "mu_gamma", "sd_g")])
-par(mfrow = c(1,1))
-x_id_50 = which(substr(varnames(out_m_climate_spline_50),1,2)=="x[") # finds the indices of the x variables
-post_climate_50 = colMeans(as.matrix(out_m_climate_spline_50[,x_id_50])) # finds the posterior mean of the x variables
-plot(post_climate_50,type="l") # plots the posterior mean of the x variables
-plot(year, post_climate_50*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
-
-# validation
-x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
-x_valid <- x_full[hold_out]
-plot(x_valid, x_valid_post_m, type = "p")
-abline(0, 1, col = "red")
-cor(x_valid, x_valid_post_m)
-
-res2 <- (x_valid_post_m - x_valid)^2
-sqrt(sum(res2) / length(x_valid_post_m))
-sqrt(mean(res2))
-
-# reconstruction plots
-recon <- plot_recon(m_spline_50)
-ggsave(filename = "Results/Figures/torn_recon_post_spl50.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
-
-recon_valid <- plot_recon(m_spline_50, valid_yrs = year[hold_out])
-ggsave(filename = "Results/Figures/torn_recon_spl50_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
-
-#### climate spline 100 year knots #####
-
-knots <- seq(0, 500, by = 100)
-B <- bs(1:Tea, knots = knots) # neet to sort x_use? then doesn't line up with rest.
-H <- length(knots) + 3
-
-matplot(1:Tea, B, type="l",xlab="Time",ylab="Basis function, Bj(X)",cex.lab=1.5,cex.axis=1.5,lwd=2)
-# d <- max(4, floor(Tea/35))
-# K <- floor(Tea/d - 1)
-
-# visualize priors (D draws from prior distribution)
-D <- 10
-g <- matrix(0, Tea, D)
-
-for(j in 1:D){
-  beta  <- rnorm(length(knots) + 3, 0, 10)
-  g[ , j] <- B%*%beta
-}
-
-matplot(1:500, g, lwd=2, type="l", cex.lab=1.5, cex.axis=1.5)
-
-# run model
-
-initialize_spl = function(){
-  alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25)
-  alpha1 = -rlnorm(M, -1, 0.25)
-  sd_y = rlnorm(M, 0, 1) 
-  mu_a0 = mean(alpha0)
-  mu_a1 = mean(alpha1)
-  sd_a0 = sd(alpha0)
-  sd_a1 = sd(alpha1)
-  eta = rnorm(Tea, 0, 0.25)
-  sd_eta = sd(eta) 
-  sd_x = rlnorm(1, 0, 1) 
-  return(list(sd_y = sd_y,
-              mu_a0 = mu_a0,
-              mu_a1 = mu_a1,
-              sd_a0 = sd_a0,
-              sd_a1 = sd_a1,
-              sd_eta = sd_eta,
-              sd_x = sd_x))
-}
-
-m_spline_100 = jags.model('Code/JAGS/climate_spline.txt', 
-                          list(y = log_y, 
-                               f = f, 
-                               l = l, 
-                               M = M, 
-                               Tea = Tea, 
-                               a = a_use, 
-                               x = x_use,
-                               B = B,
-                               H = H), 
-                          inits = initialize_spl, 
-                          n.chains = 3, 
-                          n.adapt = 3000)
-
-out_m_climate_spline_100 = coda.samples(m_spline_100, c("x", "mu_a0", "mu_a1", "sd_a0", "sd_a1", "sd_eta", "sd_x", "sd_y", "mu_gamma", "sd_g"), 2000)
-
-plot(out_m_climate_spline_100[ ,c("mu_a0", "mu_a1", "sd_a0", "sd_a1", "sd_eta", "sd_x")])
-par(mfrow = c(1,1))
-x_id_100 = which(substr(varnames(out_m_climate_spline_100),1,2)=="x[") # finds the indices of the x variables
-post_climate_100 = colMeans(as.matrix(out_m_climate_spline_100[,x_id_100])) # finds the posterior mean of the x variables
-plot(post_climate_100,type="l") # plots the posterior mean of the x variables
-plot(year, post_climate_100*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
-
-# validation
-x_valid_post_m <- post_climate_100[hold_out]*x_sd + x_mean
-x_valid <- x_full[hold_out]
-plot(x_valid, x_valid_post_m, type = "p")
-abline(0, 1, col = "red")
-cor(x_valid, x_valid_post_m)
-
-res2 <- (x_valid_post_m - x_valid)^2
-sqrt(sum(res2) / length(x_valid_post_m))
-sqrt(mean(res2))
-
-
-#####
+rm(out)
+rm(out_m_climate_spline_25)
 
 ##### negexp detrend 1 changepoint climate - seems good ####
 
 x_min <- min(x_use, na.rm = T) # value of x on standardized scale when climate = 0
+x_max <- max(x_use, na.rm = T)
 
 initialize_m2_nc = function(){
   alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25)
@@ -909,13 +653,14 @@ m2_nc_data <- list(y = log_y,
                    # K = K,
                    # species = species,
                    x_min = x_min,
+                   x_max = x_max,
                    # v = 410, # or 320 
                    x = x_use)
 
 params <- c("x", "beta0", "sd_eta", "sd_x", "sd_y", "x_1")
 
 cl <- makeCluster(nc)                       # Request # cores
-clusterExport(cl, c("m2_nc_data", "initialize_m2_nc", "params", "M", "f", "l", "Tea", "a_use", "log_y", "x_use", "x_min", "nb", "ni", "nt"))
+clusterExport(cl, c("m2_nc_data", "initialize_m2_nc", "params", "M", "f", "l", "Tea", "a_use", "log_y", "x_use", "x_min", "x_max", "nb", "ni", "nt"))
 clusterSetRNGStream(cl = cl, 98708761)
 system.time({ 
   out <- clusterEvalQ(cl, {
@@ -930,6 +675,8 @@ stopCluster(cl)
 
 # Results
 m_negexp_1change <- mcmc.list(out)
+
+save(m_negexp_1change, file = "Results/JAGS/negexp_1change.RData")
 
 plot(m_negexp_1change[ ,c("sd_eta", "sd_x", "beta0[1]", "beta0[2]", "x_1")])
 par(mfrow = c(1,1))
@@ -949,53 +696,32 @@ res2 <- (x_valid_post_m - x_valid)^2
 sqrt(sum(res2) / length(x_valid_post_m))
 sqrt(mean(res2))
 
-# reconstruction plot
-plot_recon <- function(mcmc, obs = climate, mean = x_mean, sd = x_sd, valid_yrs = NULL) {
-  xidx_m2 = which(substr(varnames(mcmc),1,2)=="x[")
-  temp_df <- as_tibble(t(as.matrix(mcmc[ , xidx_m2])))
-  temp_df <- temp_df %>% 
-    mutate(year = obs$year)
-  
-  temp_df_long <- temp_df %>% 
-    gather(key = sim, value = temp, -year) %>%
-    dplyr::mutate(temp = temp*sd + mean)
-  
-  # Validation plot
-  if(!is.null(valid_yrs)) {
-    temp_valid <- temp_df_long %>%
-      dplyr::filter(year %in% valid_yrs) %>%
-      dplyr::mutate(Value = "estimated")
-    
-    climate_valid <- obs %>%
-      dplyr::mutate(Value = "observed") %>%
-      dplyr::rename(temp = value) %>% # x_full) %>%
-      dplyr::filter(year %in% valid_yrs)
-    
-    g <- ggplot(temp_valid, aes(x = year, y = temp))
-    g <- g + geom_fan() + geom_line(data = climate_valid, aes(year, temp), colour = "red") + ylab("Annual Precipitation (cm)") + xlab("Year") + scale_fill_distiller() + theme_bw()
-  } else {
-    # scaled posterior interval
-    g <- ggplot(temp_df_long, aes(x = year, y = temp))
-    g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab("Annual Precipitation (cm)") + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
-  }
-  return(g)
-}
-
+# Reconstruction
+recon <- plot_recon(m_negexp_1change, obs = climate_df)
+ggsave(filename = "Results/Figures/JAGS/torn_recon_post_negexp_1change.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
 recon <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full))
+recon2 <- recon + theme_bw_poster()
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_1change_poster.pdf", dpi = 300)
+recon2 <- recon + theme_bw_journal()
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_1change_paper.pdf", dpi = 1000)
 
-# consider doing observed values as points to better see where they fall within the credible interval
-recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full), valid_yrs = years[hold_out])
+recon_valid <- plot_recon(m_negexp_1change, valid_yrs = year[hold_out], obs = climate_df)
+ggsave(filename = "Results/Figures/JAGS/torn_recon_negexp_1change_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
+recon_valid2 <- recon_valid + theme_bw_poster()
+ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/negexp_1change_poster_valid.pdf", dpi = 300)
 
 ## any better than random points around the mean?
 
+rm(out)
+rm(m_negexp_1change)
 
 # recon + geom_smooth(se = FALSE) # do not do this with the MCMC chains. Maybe smooth through the mean or something else because this will kill the computer.
 
 #####
 
 
-#### RCS + climate spline 50 year knots #####
-knots <- seq(0, 500, by = 50)
+#### RCS + climate spline 25 year knots #####
+knots <- seq(0, 250, by = 25)
 B <- bs(1:Tea, knots = knots) # neet to sort x_use? then doesn't line up with rest.
 H <- length(knots) + 3
 
@@ -1040,15 +766,17 @@ system.time({
 stopCluster(cl)
 
 # Results
-m_rcs_spline_50 <- mcmc.list(out)
+m_rcs_spline_25 <- mcmc.list(out)
 
-plot(m_rcs_spline_50[ ,c("alpha0", "alpha1", "sd_eta", "sd_x", "mu_gamma", "sd_g")])
+save(m_rcs_spline_25, file = "Results/JAGS/rcs_spline_25.RData")
+
+plot(m_rcs_spline_25[ ,c("alpha0", "alpha1", "sd_eta", "sd_x", "mu_gamma", "sd_g")])
 par(mfrow = c(1,1))
 
 # validation
-x_id_50 = which(substr(varnames(m_rcs_spline_50),1,2)=="x[") # finds the indices of the x variables
-post_climate_50 = colMeans(as.matrix(m_rcs_spline_50[,x_id_50])) # finds the posterior mean of the x variables
-x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+x_id_25 = which(substr(varnames(m_rcs_spline_25),1,2)=="x[") # finds the indices of the x variables
+post_climate_25 = colMeans(as.matrix(m_rcs_spline_25[,x_id_25])) # finds the posterior mean of the x variables
+x_valid_post_m <- post_climate_25[hold_out]*x_sd + x_mean
 x_valid <- x_full[hold_out]
 plot(x_valid, x_valid_post_m, type = "p")
 abline(0, 1, col = "red")
@@ -1059,8 +787,8 @@ sqrt(sum(res2) / length(x_valid_post_m))
 sqrt(mean(res2))
 
 # reconstruction plots
-recon <- plot_recon(m_rcs_spline_50)
-ggsave(filename = "Results/Figures/torn_recon_post_rcs_spl50.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
+recon <- plot_recon(m_rcs_spline_25)
+ggsave(filename = "Results/Figures/torn_recon_post_rcs_spl25.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
 
 y_crn$scaled <- (y_crn$HURstd * x_sd) + x_mean
 recon + geom_line(data = y_crn, aes(year, scaled), color = "pink") # compare to chronology
@@ -1072,9 +800,168 @@ p2 <- ggplot(data = y_crn, aes(year, samp.depth)) + geom_step() + theme_bw()
 require(gridExtra)
 grid.arrange(p1 + theme(legend.position="top"), p2, ncol = 1, heights = c(2, 1))
 
-recon_valid <- plot_recon(m_rcs_spline_50, valid_yrs = year[hold_out])
-ggsave(filename = "Results/Figures/torn_recon_rcs_spl50_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
+recon_valid <- plot_recon(m_rcs_spline_25, valid_yrs = year[hold_out])
+ggsave(filename = "Results/Figures/torn_recon_rcs_spl25_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
 
+
+# Reconstruction
+recon <- plot_recon(m_rcs_spline_25, obs = data.frame(year = years, value = x_full))
+recon2 <- recon + theme_bw_poster() # + ggtitle("NegExp RCS with 25-yr Spline Climate")
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/rcs_spline_25_poster.pdf", dpi = 300)
+recon2 <- recon + theme_bw_journal()
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/rcs_spline_25_paper.pdf", dpi = 1000)
+
+recon_valid <- plot_recon(m_rcs_spline_25, valid_yrs = year[hold_out], obs = climate_df)
+ggsave(filename = "Results/Figures/JAGS/torn_recon_rcs_spline_25_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
+recon_valid2 <- recon_valid + theme_bw_poster() # + ggtitle("NegExp RCS with 25-yr Spline Climate")
+ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/rcs_spline_25_poster_valid.pdf", dpi = 300)
+
+rm(out)
+rm(m_rcs_spline_25)
+
+######
+
+
+
+if(FALSE) {
+  
+  ##### climate p-spline - not mixing #####
+  library(splines)
+  
+  # penalty matrix function
+  makeQ = function(degree, K, epsilon=1e-3){
+    x <- diag(K)
+    E <- diff(x, differences=degree)
+    return( t(E) %*% E + x*epsilon)
+  } 
+  
+  # Set up basis function for each tree ring series
+  K = 6 # for Q it needs to be the 4 betas for cubic plus start and end node I think
+  
+  knots <- seq(0, 500, by = 25)
+  B <- bs(1:Tea, knots = knots)
+  H <- length(knots) + 3
+  
+  Q <- makeQ(2, K = H) # not sure what the degree is
+  # run model
+  
+  
+  # sam clifford blog
+  d <- max(4, floor(Tea/35))
+  K <- floor(Tea/d - 1)
+  
+  bspline <- function(x, K, bdeg=3, cyclic=FALSE, xl=min(x), xr=max(x)){
+    x <- as.matrix(x,ncol=1)
+    
+    ndx <- K - bdeg
+    
+    # as outlined in Eilers and Marx (1996)
+    dx <- (xr - xl) / ndx
+    t <- xl + dx * (-bdeg:(ndx+bdeg))
+    T <- (0 * x + 1) %*% t
+    X <- x %*% (0 * t + 1)
+    P <- (X - T) / dx
+    B <- (T <= X) & (X < (T + dx))
+    r <- c(2:length(t), 1)
+    
+    for (k in 1:bdeg){
+      B <- (P * B + (k + 1 - P) * B[ ,r]) / k; 
+    }
+    
+    B <- B[,1:(ndx+bdeg)]
+    
+    if (cyclic == 1){
+      for (i in 1:bdeg){
+        B[ ,i] <- B[ ,i] + B[ ,K-bdeg+i]    
+      }
+      B <- B[ , 1:(K-bdeg)]
+    }
+    
+    return(B)
+  }
+  
+  B <- bspline(x = 1:500, K = H) #, xl=0, xr=1)
+  
+  makeQ = function(degree, K, epsilon=1e-3){
+    x <- diag(K)
+    E <- diff(x, differences=degree)
+    return( t(E) %*% E + x*epsilon)
+  } 
+  
+  Q <- makeQ(2, K)
+  
+  round(eigen(makeQ(2, K))$values, 4)
+  
+  
+  initialize_spl = function(){
+    alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25)
+    alpha1 = -rlnorm(M, -1, 0.25)
+    sd_y = rlnorm(M, 0, 1) 
+    mu_a0 = mean(alpha0)
+    mu_a1 = mean(alpha1)
+    sd_a0 = sd(alpha0)
+    sd_a1 = sd(alpha1)
+    eta = rnorm(Tea, 0, 0.25)
+    sd_eta = sd(eta) 
+    sd_x = rlnorm(1, 0, 1) 
+    return(list(sd_y = sd_y,
+                mu_a0 = mu_a0,
+                mu_a1 = mu_a1,
+                sd_a0 = sd_a0,
+                sd_a1 = sd_a1,
+                sd_eta = sd_eta,
+                sd_x = sd_x))
+  }
+  
+  m_p_spline_25 = jags.model('Code/JAGS/climate_p_spline.txt', 
+                             list(y = log_y, 
+                                  f = f, 
+                                  l = l, 
+                                  M = M, 
+                                  Tea = Tea, 
+                                  a = a_use, 
+                                  x = x_use,
+                                  Q = Q,
+                                  B = B,
+                                  K = K), 
+                             inits = initialize_spl, 
+                             n.chains = 3, 
+                             n.adapt = 1000)
+  
+  out_p_spline_25 = coda.samples(m_p_spline_25, c("x", "gamma_0", "gamma_00", "lambda_x", "sd_eta", "sd_x", "sd_y"), 1000) # "alpha0", can monitor alpha0 if want to see the spline for each series but it takes a massive amount of memory (6 GB RAM held in R for 3 chains at 1000 iterations). can't monitor mu, y_rep, or mu_rep without massive memory
+  
+  plot(out_p_spline_25[ , c("x[100]", "sd_eta", "sd_x", "gamma_00", "lambda_x")])
+  par(mfrow = c(1,1))
+  
+  # Quick plot reconstruction
+  par(mfrow = c(1,1))
+  x_id = which(substr(varnames(out_p_spline_25),1,2)=="x[")
+  x_post = as.matrix(out_p_spline_25[ ,x_id])
+  x_post_mean <- colMeans(x_post)
+  plot(year, x_post_mean*x_sd + x_mean, type="l")
+  
+  x_post_median <- apply(x_post, 2, median)
+  plot(year, x_post_median*x_sd + x_mean, type="l")
+  
+  plot(x, y_i)
+  lines(x, postxm)
+  
+  # validation
+  x_valid_post_m <- postxm_m2[hold_out]*x_sd + x_mean
+  x_valid <- x_full[hold_out]
+  plot(x_valid, x_valid_post_m, type = "p")
+  abline(0, 1, col = "red")
+  cor(x_valid, x_valid_post_m)
+  
+  res2 <- (x_valid_post_m - x_valid)^2
+  sqrt(sum(res2) / length(x_valid_post_m))
+  sqrt(mean(res2))
+  
+  
+  
+  
+  #####
+  
 #### climate spline 100 year knots #####
 
 knots <- seq(0, 500, by = 100)
@@ -1293,6 +1180,196 @@ recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = 
 # - Tornetrask data don't have actual age but are assumed to get near pith and that first ring if first year of growth
 ################
 
+#### climate spline 50 year knots #####
+
+knots <- seq(0, 500, by = 50)
+B <- bs(1:Tea, knots = knots) # neet to sort x_use? then doesn't line up with rest.
+H <- length(knots) + 3
+
+matplot(1:Tea, B, type="l",xlab="Time",ylab="Basis function, Bj(X)",cex.lab=1.5,cex.axis=1.5,lwd=2)
+# d <- max(4, floor(Tea/35))
+# K <- floor(Tea/d - 1)
+
+# visualize priors (D draws from prior distribution)
+D <- 10
+g <- matrix(0, Tea, D)
+
+for(j in 1:D){
+  beta  <- rnorm(length(knots) + 3, 0, 10)
+  g[ , j] <- B%*%beta
+}
+
+matplot(1:500, g, lwd=2, type="l", cex.lab=1.5, cex.axis=1.5)
+
+# run model
+initialize_spl = function(){
+  alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25)
+  alpha1 = -rlnorm(M, -1, 0.25)
+  sd_y = rlnorm(M, 0, 1) 
+  mu_a0 = mean(alpha0)
+  mu_a1 = mean(alpha1)
+  sd_a0 = sd(alpha0)
+  sd_a1 = sd(alpha1)
+  eta = rnorm(Tea, 0, 0.25)
+  sd_eta = sd(eta) 
+  sd_x = rlnorm(1, 0, 1) 
+  return(list(sd_y = sd_y,
+              mu_a0 = mu_a0,
+              mu_a1 = mu_a1,
+              sd_a0 = sd_a0,
+              sd_a1 = sd_a1,
+              sd_eta = sd_eta,
+              sd_x = sd_x))
+}
+
+spl_data <- list(y = log_y, 
+                 f = f, 
+                 l = l, 
+                 M = M, 
+                 Tea = Tea, 
+                 a = a_use, 
+                 x = x_use,
+                 B = B,
+                 H = H)
+
+params <- c("x", "mu_a0", "mu_a1", "sd_a0", "sd_a1", "sd_eta", "sd_x", "sd_y", "mu_gamma", "sd_g")
+
+cl <- makeCluster(nc)                       # Request # cores
+clusterExport(cl, c("spl_data", "initialize_spl", "params", "M", "f", "l", "Tea", "a_use", "log_y", "x_use", "nb", "ni", "nt"))
+clusterSetRNGStream(cl = cl, 8675302)
+system.time({ 
+  out <- clusterEvalQ(cl, {
+    library(rjags)
+    jm <- jags.model("Code/JAGS/climate_spline.txt", spl_data, initialize_spl, n.adapt=nb, n.chains=1) # Compile model and run burnin
+    out <- coda.samples(jm, params, n.iter=ni, thin=nt) # Sample from posterior distribution
+    return(as.mcmc(out))
+  })
+}) # 
+stopCluster(cl)
+
+# Results
+m_spline_50 <- mcmc.list(out)
+# 
+# m_spline_50 = jags.model('Code/JAGS/climate_spline.txt', 
+#                          list(y = log_y, 
+#                               f = f, 
+#                               l = l, 
+#                               M = M, 
+#                               Tea = Tea, 
+#                               a = a_use, 
+#                               x = x_use,
+#                               B = B,
+#                               H = H), 
+#                          inits = initialize_spl, 
+#                          n.chains = 3, 
+#                          n.adapt = 3000)
+# 
+# out_m_climate_spline_50 = coda.samples(m_spline_50, c("x", "mu_a0", "mu_a1", "sd_a0", "sd_a1", "sd_eta", "sd_x", "sd_y", "mu_gamma", "sd_g"), 2000)
+
+plot(m_spline_50[ ,c("mu_a0", "mu_a1", "sd_a0", "sd_a1", "sd_eta", "sd_x", "mu_gamma", "sd_g")])
+par(mfrow = c(1,1))
+x_id_50 = which(substr(varnames(out_m_climate_spline_50),1,2)=="x[") # finds the indices of the x variables
+post_climate_50 = colMeans(as.matrix(out_m_climate_spline_50[,x_id_50])) # finds the posterior mean of the x variables
+plot(post_climate_50,type="l") # plots the posterior mean of the x variables
+plot(year, post_climate_50*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
+
+# validation
+x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+x_valid <- x_full[hold_out]
+plot(x_valid, x_valid_post_m, type = "p")
+abline(0, 1, col = "red")
+cor(x_valid, x_valid_post_m)
+
+res2 <- (x_valid_post_m - x_valid)^2
+sqrt(sum(res2) / length(x_valid_post_m))
+sqrt(mean(res2))
+
+# reconstruction plots
+recon <- plot_recon(m_spline_50)
+ggsave(filename = "Results/Figures/torn_recon_post_spl50.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
+
+recon_valid <- plot_recon(m_spline_50, valid_yrs = year[hold_out])
+ggsave(filename = "Results/Figures/torn_recon_spl50_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
+
+#### climate spline 100 year knots #####
+
+knots <- seq(0, 500, by = 100)
+B <- bs(1:Tea, knots = knots) # neet to sort x_use? then doesn't line up with rest.
+H <- length(knots) + 3
+
+matplot(1:Tea, B, type="l",xlab="Time",ylab="Basis function, Bj(X)",cex.lab=1.5,cex.axis=1.5,lwd=2)
+# d <- max(4, floor(Tea/35))
+# K <- floor(Tea/d - 1)
+
+# visualize priors (D draws from prior distribution)
+D <- 10
+g <- matrix(0, Tea, D)
+
+for(j in 1:D){
+  beta  <- rnorm(length(knots) + 3, 0, 10)
+  g[ , j] <- B%*%beta
+}
+
+matplot(1:500, g, lwd=2, type="l", cex.lab=1.5, cex.axis=1.5)
+
+# run model
+
+initialize_spl = function(){
+  alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25)
+  alpha1 = -rlnorm(M, -1, 0.25)
+  sd_y = rlnorm(M, 0, 1) 
+  mu_a0 = mean(alpha0)
+  mu_a1 = mean(alpha1)
+  sd_a0 = sd(alpha0)
+  sd_a1 = sd(alpha1)
+  eta = rnorm(Tea, 0, 0.25)
+  sd_eta = sd(eta) 
+  sd_x = rlnorm(1, 0, 1) 
+  return(list(sd_y = sd_y,
+              mu_a0 = mu_a0,
+              mu_a1 = mu_a1,
+              sd_a0 = sd_a0,
+              sd_a1 = sd_a1,
+              sd_eta = sd_eta,
+              sd_x = sd_x))
+}
+
+m_spline_100 = jags.model('Code/JAGS/climate_spline.txt', 
+                          list(y = log_y, 
+                               f = f, 
+                               l = l, 
+                               M = M, 
+                               Tea = Tea, 
+                               a = a_use, 
+                               x = x_use,
+                               B = B,
+                               H = H), 
+                          inits = initialize_spl, 
+                          n.chains = 3, 
+                          n.adapt = 3000)
+
+out_m_climate_spline_100 = coda.samples(m_spline_100, c("x", "mu_a0", "mu_a1", "sd_a0", "sd_a1", "sd_eta", "sd_x", "sd_y", "mu_gamma", "sd_g"), 2000)
+
+plot(out_m_climate_spline_100[ ,c("mu_a0", "mu_a1", "sd_a0", "sd_a1", "sd_eta", "sd_x")])
+par(mfrow = c(1,1))
+x_id_100 = which(substr(varnames(out_m_climate_spline_100),1,2)=="x[") # finds the indices of the x variables
+post_climate_100 = colMeans(as.matrix(out_m_climate_spline_100[,x_id_100])) # finds the posterior mean of the x variables
+plot(post_climate_100,type="l") # plots the posterior mean of the x variables
+plot(year, post_climate_100*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
+
+# validation
+x_valid_post_m <- post_climate_100[hold_out]*x_sd + x_mean
+x_valid <- x_full[hold_out]
+plot(x_valid, x_valid_post_m, type = "p")
+abline(0, 1, col = "red")
+cor(x_valid, x_valid_post_m)
+
+res2 <- (x_valid_post_m - x_valid)^2
+sqrt(sum(res2) / length(x_valid_post_m))
+sqrt(mean(res2))
+
+
+#####
 
 ##### Tree-specific climate response - not identifiable?  ####
 # variation in climate response by tree - not identifiable - could try informative priors
@@ -1606,3 +1683,5 @@ abline(0, 1, col = "red")
 
 lm1 <- lm(as.numeric(x_full[hold_out]) ~ as.numeric(postxm[hold_out]*x_sd + x_mean))
 summary(lm1)
+
+}

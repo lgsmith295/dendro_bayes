@@ -27,10 +27,13 @@ theme_bw_poster <- function (base_family = "") {
   theme_grey(base_family = base_family) %+replace%
     theme(
       # legend.position = "none",
+      title = element_text(size = 20),
       axis.text = element_text(size = 20),
       axis.title = element_text(size = 25),
       axis.ticks = element_line(colour = "black"),
       legend.key = element_rect(colour = "grey80"),
+      legend.title=element_text(size=20), 
+      legend.text=element_text(size=15),
       panel.background = element_rect(fill = "white",
                                       colour = NA),
       panel.border = element_rect(fill = NA,

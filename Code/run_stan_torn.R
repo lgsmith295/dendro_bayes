@@ -149,4 +149,32 @@ m_negexp_linear <- stan(file = "Code/Stan/negexp_linear.stan",
                         warmup = 500,
                         thin = 1)
 
-summary(m_negexp_linear)
+traceplot(m_negexp_linear, pars = c("mu_a0", "mu_a1", "sd_a0", "sd_a1", "beta0", "sd_eta", "sd_x"))
+
+print(m_negexp_linear, pars = c("mu_a0", "mu_a1", "sd_a0", "sd_a1", "beta0", "sd_eta", "sd_x"))
+
+plot(m_negexp_linear, pars = c("mu_a0", "mu_a1", "sd_a0", "sd_a1", "beta0", "sd_eta", "sd_x"))
+
+# pairs(m_negexp_linear, m_negexp_linear, pars = c("mu_a0", "mu_a1", "sd_a0", "sd_a1", "beta0", "sd_eta", "sd_x"))
+
+check_n_eff(m_negexp_linear, pars = c("mu_a0", "mu_a1", "sd_a0", "sd_a1", "beta0", "sd_eta", "sd_x"))
+
+check_rhat(m_negexp_linear, pars = c("mu_a0", "mu_a1", "sd_a0", "sd_a1", "beta0", "sd_eta", "sd_x"))
+
+check_energy(m_negexp_linear, pars = c("mu_a0", "mu_a1", "sd_a0", "sd_a1", "beta0", "sd_eta", "sd_x"))
+
+check_div(m_negexp_linear, pars = c("mu_a0", "mu_a1", "sd_a0", "sd_a1", "beta0", "sd_eta", "sd_x"))
+# 
+# c_dark <- c("#8F272780")
+# green <- c("#00FF0080")
+# 
+# partition <- partition_div(m_negexp_linear)
+# div_params <- partition[[1]]
+# nondiv_params <- partition[[2]]
+# 
+# par(mar = c(4, 4, 0.5, 0.5))
+# plot(nondiv_params$'theta[1]', log(nondiv_params$tau),
+#      col=c_dark, pch=16, cex=0.8, xlab="theta[1]", ylab="log(tau)",
+#      xlim=c(-20, 50), ylim=c(-1,4))
+# points(div_params$'theta[1]', log(div_params$tau),
+#        col=green, pch=16, cex=0.8)

@@ -234,11 +234,15 @@ sqrt(mean(res2))
 recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full))
 
 recon2 <- recon + theme_bw_poster()
-ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_norm.pdf", dpi = 300)
+ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_norm_poster.pdf", dpi = 300)
 
+recon2 <- recon + theme_bw_journal()
+ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_norm_paper.pdf", dpi = 1000)
 
 # consider doing observed values as points to better see where they fall within the credible interval
 recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full), valid_yrs = years[hold_out])
+recon_valid2 <- recon_valid + theme_bw_poster()
+ggsave(plot = recon_valid2, filename = "Results/Figures/NM/negexp_norm_poster_valid.pdf", dpi = 300)
 
 ## any better than random points around the mean?
 
@@ -362,10 +366,19 @@ plot_recon <- function(mcmc, obs = climate, mean = x_mean, sd = x_sd, valid_yrs 
   return(g)
 }
 
-recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full))
+recon <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full))
 
 # consider doing observed values as points to better see where they fall within the credible interval
-recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full), valid_yrs = years[hold_out])
+recon_valid <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full), valid_yrs = years[hold_out])
+
+# reconstruction plot
+recon <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full))
+
+recon2 <- recon + theme_bw_poster()
+ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_1change_poster.pdf", dpi = 300)
+
+recon2 <- recon + theme_bw_journal()
+ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_1change_paper.pdf", dpi = 1000)
 
 ## any better than random points around the mean?
 
@@ -552,6 +565,15 @@ ggsave(filename = "Results/Figures/torn_recon_post_spl50.tiff", plot = recon, wi
 recon_valid <- plot_recon(m_spline_50, valid_yrs = year[hold_out])
 ggsave(filename = "Results/Figures/torn_recon_spl50_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
 
+
+# reconstruction plot
+recon <- plot_recon(m_spline_50, obs = data.frame(year = years, value = x_full))
+
+recon2 <- recon + theme_bw_poster()
+ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_spline50_poster.pdf", dpi = 300)
+
+recon2 <- recon + theme_bw_journal()
+ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_spline50_paper.pdf", dpi = 1000)
 #####
 
 
