@@ -28,18 +28,19 @@ testing <- TRUE
 
 
 if(testing) {
-  nb = 3000
-  ni = 2000
+  nb = 1000
+  ni = 1000
   nt = 1
   nc = 3
 } else {
-  nb = 10000
-  ni = 10000
-  nt = 10
+  nb = 5000
+  ni = 5000
+  nt = 5
   nc = 4
 }
 
-if(!dir.exists("Results/JAGS")) dir.create("Results/JAGS", recursive = TRUE)
+if(!dir.exists("Results/NM/JAGS/")) dir.create("Results/NM/JAGS/", recursive = TRUE)
+if(!dir.exists("Results/NM/Figures/")) dir.create("Results/NM/Figures/", recursive = TRUE)
 
 #####
 
@@ -81,7 +82,7 @@ core_df <- raw %>%
   distinct() %>%
   mutate(tree = str_sub(core, end = -2), # separate cores from the same core -isn't going to work for trees with only 1 core
          tree_core = str_sub(core, end = 1)) %>%
-  mutate(tree = if_else(purrr::is_character(tree_core), tree, core)) # assume any cores from the same tree have identical IDs expect ending with a letter
+  mutate(tree = if_else(purrr::is_character(tree_core), tree, core)) # assume any cores from the same tree have identical IDs except ending with a letter
 
 unique(core_df$tree_core)
 unique(core_df$tree)
@@ -106,6 +107,7 @@ x_use <- x_s
 climate_rows <- which(!is.na(x_full))  # the indices that we hold out
 hold_out <- climate_rows[1:floor(length(climate_rows) / 2)]
 x_use[hold_out] <- NA
+cal_ids <- (max(hold_out)+1):(max(climate_rows))
 
 years[hold_out]
 
@@ -144,8 +146,6 @@ a_use <- (age - mean(age, na.rm = TRUE)) / sd(age, na.rm = TRUE)
 
 K <- length(unique(y_ij$sp_code))
 
-########## Run Models ###########
-
 # testing using tornetrask from other script
 if(FALSE) {
   K <- 1
@@ -153,6 +153,10 @@ if(FALSE) {
 }
 
 species <- as.integer(as.factor(y_ij$sp_code))
+
+save(climate2, years, M, Tea, log_y, x_full, a_use, K, cores, x_mean, x_sd, x_use, species, file = "Results/NM/JAGS/model_prep_nm.RData")
+
+########## Run Models ###########
 
 ##### negexp detrend linear climate M2-non-centered ####
 initialize_m2_nc = function(){
@@ -211,9 +215,13 @@ stopCluster(cl)
 
 # Results
 m_negexp_norm <- mcmc.list(out)
+save(m_negexp_norm, file = "Results/NM/JAGS/negexp_norm.RData")
 
 plot(m_negexp_norm[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]")])
 par(mfrow = c(1,1))
+
+summary(m_negexp_norm[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]")])
+
 x_id_50 = which(substr(varnames(m_negexp_norm),1,2)=="x[") # finds the indices of the x variables
 post_climate_50 = colMeans(as.matrix(m_negexp_norm[,x_id_50])) # finds the posterior mean of the x variables
 # plot(post_climate_50,type="l") # plots the posterior mean of the x variables
@@ -226,12 +234,15 @@ plot(x_valid, x_valid_post_m, type = "p")
 abline(0, 1, col = "red")
 cor(x_valid, x_valid_post_m)
 
-res2 <- (x_valid_post_m - x_valid)^2
-sqrt(sum(res2) / length(x_valid_post_m))
-sqrt(mean(res2))
+# Validation Performance Statistics
+cal_yrs
+
+R2 <- (sum((x_valid - mean(x_valid)) * (x_valid_post_m - mean(x_valid_post_m))))^2 / (sum((x_valid - mean(x_valid))^2) * sum((x_valid_post_m - mean(x_valid_post_m))^2))
+RE <- 1 - sum((x_valid - x_valid_post_m) ^ 2) / sum((x_valid - mean(x_full[cal_ids], na.rm = TRUE))^2)
+CE <- 1 - sum((x_valid - x_valid_post_m) ^ 2) / sum((x_valid - mean(x_full[hold_out])) ^ 2)
 
 # reconstruction plot
-recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full))
+recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)")
 
 recon2 <- recon + theme_bw_poster()
 ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_norm_poster.pdf", dpi = 300)
@@ -240,9 +251,12 @@ recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_norm_paper.pdf", dpi = 1000)
 
 # consider doing observed values as points to better see where they fall within the credible interval
-recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full), valid_yrs = years[hold_out])
+recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)", valid_yrs = years[hold_out])
 recon_valid2 <- recon_valid + theme_bw_poster()
 ggsave(plot = recon_valid2, filename = "Results/Figures/NM/negexp_norm_poster_valid.pdf", dpi = 300)
+
+rm(out)
+rm(m_negexp_norm)
 
 ## any better than random points around the mean?
 
@@ -315,6 +329,7 @@ stopCluster(cl)
 
 # Results
 m_negexp_1change <- mcmc.list(out)
+save(m_negexp_1change, file = "Results/NM/JAGS/negexp_1change.RData")
 
 plot(m_negexp_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1")])
 par(mfrow = c(1,1))
@@ -335,44 +350,13 @@ sqrt(sum(res2) / length(x_valid_post_m))
 sqrt(mean(res2))
 
 # reconstruction plot
-plot_recon <- function(mcmc, obs = climate, mean = x_mean, sd = x_sd, valid_yrs = NULL) {
-  xidx_m2 = which(substr(varnames(mcmc),1,2)=="x[")
-  temp_df <- as_tibble(t(as.matrix(mcmc[ , xidx_m2])))
-  temp_df <- temp_df %>% 
-    mutate(year = obs$year)
-  
-  temp_df_long <- temp_df %>% 
-    gather(key = sim, value = temp, -year) %>%
-    dplyr::mutate(temp = temp*sd + mean)
-  
-  # Validation plot
-  if(!is.null(valid_yrs)) {
-    temp_valid <- temp_df_long %>%
-      dplyr::filter(year %in% valid_yrs) %>%
-      dplyr::mutate(Value = "estimated")
-    
-    climate_valid <- obs %>%
-      dplyr::mutate(Value = "observed") %>%
-      dplyr::rename(temp = value) %>% # x_full) %>%
-      dplyr::filter(year %in% valid_yrs)
-    
-    g <- ggplot(temp_valid, aes(x = year, y = temp))
-    g <- g + geom_fan() + geom_line(data = climate_valid, aes(year, temp), colour = "red") + ylab("Annual Precipitation (cm)") + xlab("Year") + scale_fill_distiller() + theme_bw()
-  } else {
-    # scaled posterior interval
-    g <- ggplot(temp_df_long, aes(x = year, y = temp))
-    g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab("Annual Precipitation (cm)") + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
-  }
-  return(g)
-}
-
-recon <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full))
+recon <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)")
 
 # consider doing observed values as points to better see where they fall within the credible interval
-recon_valid <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full), valid_yrs = years[hold_out])
+recon_valid <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)", valid_yrs = years[hold_out])
 
 # reconstruction plot
-recon <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full))
+recon <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)")
 
 recon2 <- recon + theme_bw_poster()
 ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_1change_poster.pdf", dpi = 300)
@@ -380,10 +364,8 @@ ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_1change_poster.pdf",
 recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_1change_paper.pdf", dpi = 1000)
 
-## any better than random points around the mean?
-
-
-# recon + geom_smooth(se = FALSE) # do not do this with the MCMC chains. Maybe smooth through the mean or something else because this will kill the computer.
+rm(out)
+rm(m_negexp_1change)
 
 #####
 
@@ -448,6 +430,7 @@ stopCluster(cl)
 
 # Results
 m_none_1change <- mcmc.list(out)
+save(m_none_1change, file = "Results/NM/JAGS/none_1change.RData")
 
 plot(m_none_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1")])
 par(mfrow = c(1,1))
@@ -456,6 +439,8 @@ post_climate_50 = colMeans(as.matrix(m_none_1change[,x_id_50])) # finds the post
 # plot(post_climate_50,type="l") # plots the posterior mean of the x variables
 plot(years, post_climate_50*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
 
+rm(out)
+rm(m_none_1change)
 
 #####
 
@@ -523,6 +508,8 @@ stopCluster(cl)
 
 # Results
 m_spline_50 <- mcmc.list(out)
+save(m_spline_50, file = "Results/NM/JAGS/negexp_spline25.RData")
+
 # 
 # m_spline_50 = jags.model('Code/JAGS/climate_spline.txt', 
 #                          list(y = log_y, 
@@ -567,13 +554,18 @@ ggsave(filename = "Results/Figures/torn_recon_spl50_valid_back.tiff", plot = rec
 
 
 # reconstruction plot
-recon <- plot_recon(m_spline_50, obs = data.frame(year = years, value = x_full))
+recon <- plot_recon(m_spline_50, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)")
 
 recon2 <- recon + theme_bw_poster()
-ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_spline50_poster.pdf", dpi = 300)
+ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_spline25_poster.pdf", dpi = 300)
 
 recon2 <- recon + theme_bw_journal()
-ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_spline50_paper.pdf", dpi = 1000)
+ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_spline25_paper.pdf", dpi = 1000)
+
+rm(out)
+rm(m_spline_50)
+
+
 #####
 
 
@@ -583,7 +575,7 @@ ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_spline50_paper.pdf",
 
 ##### Extra ######
 
-if(testing) {
+if(FALSE) {
   
   ##### linear detrend 1 changepoint climate - linear error - not working and probably not a great model ####
   
@@ -699,10 +691,10 @@ if(testing) {
     return(g)
   }
   
-  recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full))
+  recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)")
   
   # consider doing observed values as points to better see where they fall within the credible interval
-  recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full), valid_yrs = years[hold_out])
+  recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)", valid_yrs = years[hold_out])
   
   ## any better than random points around the mean?
   
@@ -901,10 +893,10 @@ if(testing) {
     return(g)
   }
   
-  recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full))
+  recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)")
   
   # consider doing observed values as points to better see where they fall within the credible interval
-  recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full), valid_yrs = years[hold_out])
+  recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)", valid_yrs = years[hold_out])
   
   ## any better than random points around the mean?
   

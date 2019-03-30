@@ -1,23 +1,23 @@
 // Thanks to Ben Goodrich: https://discourse.mc-stan.org/t/help-translating-model-from-bugs/8198
 data {
-  int<lower = 0> N_obs;   // observations on x (climate)
-  vector[N_obs] x_obs;
-  int<lower = 0> N_miss; // missing observations on x to estimate
-  vector[N_obs + N_miss] log_y;
-  vector[N_obs + N_miss] age;
+  int<lower = 0> T_obs;   // observations on x (climate)
+  vector[T_obs] x_obs;
+  int<lower = 0> T_miss; // missing observations on x to estimate
+  vector[N] log_y;
+  vector[N] age;
 
   // I'm not really sure what these are
   int<lower = 0> M; // number of trees
   int<lower = 0> N;
   int<lower = 1, upper = M> tree_id[N];
-  int<lower = 1, upper = N> year[N];
+  int<lower = 1> year[N];
 }
 transformed data {
-  // int N = N_obs + N_miss;
+  int T = T_obs + T_miss;
 }
 parameters {
   vector[N_miss] x_miss;
-  vector[N] eta_raw;
+  vector[T] eta_raw;
 
   vector[N] alpha0_raw;
   vector<upper = 0>[N] alpha1;
@@ -40,7 +40,7 @@ parameters {
 }
 model {
   vector[N] x = append_row(x_miss, x_obs)[year];
-  vector[N] eta = beta0 * x + sd_eta * eta_raw;
+  vector[T] eta = beta0 * x + sd_eta * eta_raw;
   vector[N] alpha0 = mu_a0 + sd_a0 * alpha0_raw; 
  
  log_y ~ normal(alpha0[tree_id] + alpha1[tree_id] .* age + eta, sd_y[tree_id]);

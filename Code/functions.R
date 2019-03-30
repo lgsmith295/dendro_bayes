@@ -52,7 +52,7 @@ theme_bw_poster <- function (base_family = "") {
 
 theme_set(theme_bw_poster())
 
-plot_recon <- function(mcmc, obs = climate, mean = x_mean, sd = x_sd, valid_yrs = NULL) {
+plot_recon <- function(mcmc, obs = climate, mean = x_mean, sd = x_sd, valid_yrs = NULL, y_lab = "Mean Temperature (C)") {
   xidx_m2 = which(substr(varnames(mcmc),1,2)=="x[")
   temp_df <- as_tibble(t(as.matrix(mcmc[ , xidx_m2])))
   temp_df <- temp_df %>% 
@@ -74,12 +74,13 @@ plot_recon <- function(mcmc, obs = climate, mean = x_mean, sd = x_sd, valid_yrs 
       dplyr::filter(year %in% valid_yrs)
     
     g <- ggplot(temp_valid, aes(x = year, y = temp))
-    g <- g + geom_fan() + geom_line(data = climate_valid, aes(year, temp), colour = "red") + ylab("Annual Precipitation (cm)") + xlab("Year") + scale_fill_distiller() + theme_bw()
+    g <- g + geom_fan() + geom_line(data = climate_valid, aes(year, temp), colour = "red") + ylab(y_lab) + xlab("Year") + scale_fill_distiller() + theme_bw()
   } else {
     # scaled posterior interval
     g <- ggplot(temp_df_long, aes(x = year, y = temp))
-    g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab("Annual Precipitation (cm)") + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
+    g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab(y_lab) + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
   }
+  
   return(g)
 }
 
@@ -114,4 +115,35 @@ plot_recon_temp <- function(mcmc, obs = climate_df, x_mean = x_mean, x_sd = x_sd
     g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab("Temperature (C)") + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
   }
   return(g)
+}
+
+
+
+# create observed vs expected plot with CRI?????
+if(FALSE) {
+xidx_m2 = which(substr(varnames(mcmc),1,2)=="x[")
+temp_df <- as_tibble(t(as.matrix(mcmc[ , xidx_m2])))
+temp_df <- temp_df %>% 
+  mutate(year = obs$year)
+
+temp_df_long <- temp_df %>% 
+  gather(key = sim, value = temp, -year) %>%
+  dplyr::mutate(temp = temp*sd + mean)
+
+# Validation plot
+  temp_valid <- temp_df_long %>%
+    dplyr::filter(year %in% valid_yrs) %>%
+    dplyr::mutate(Value = "estimated")
+  
+  climate_valid <- obs %>%
+    dplyr::mutate(Value = "observed") %>%
+    dplyr::rename(temp = value) %>% # x_full) %>%
+    dplyr::filter(year %in% valid_yrs)
+  
+  df <- left_join(climate_valid, temp_valid, by = c("year"))
+  
+  ggplot(df, aes(temp.x, temp.y)) + geom_point(alpha = 0.01) # + geom_fan()
+  
+  g <- ggplot(df, aes(x = as.factor(temp.x), y = temp.y)) + geom_boxplot()
+  
 }
