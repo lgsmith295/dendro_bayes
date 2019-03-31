@@ -4,6 +4,9 @@ output:
     keep_md: yes
     template: sheds-template.html
 ```
+## Dendro Bayes
+
+## Coming Soon...
 
 $$
 log(y_{ikt}) = \alpha_{0ik} + \alpha_{1ik}age_{ikt} + \beta_{k}climate_{t} + \epsilon_{ikt}
