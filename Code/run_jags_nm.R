@@ -24,7 +24,7 @@ library(splines)
 source("Code/functions.R")
 
 ##### Set conditions #####
-testing <- TRUE
+testing <- FALSE
 
 
 if(testing) {
@@ -554,6 +554,7 @@ ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_spline25_paper.pdf",
 rm(out)
 rm(m_spline_25)
 
+write.csv(performance_df, file = "Results/NM/nm_performance_stats.csv", row.names = FALSE)
 
 #####
 
