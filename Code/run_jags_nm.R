@@ -88,7 +88,7 @@ unique(core_df$tree_core)
 unique(core_df$tree)
 
 # Climate
-load("Data/az_nm/annual_ppt_cm.RData")
+load(file = "Data/az_nm/jan_jul_ppt_cm.RData") # jan-jul mean precip
 climate2 <- climate2 %>%
   dplyr::filter(year <= max(raw$year, na.rm = TRUE))
 
@@ -235,14 +235,12 @@ abline(0, 1, col = "red")
 cor(x_valid, x_valid_post_m)
 
 # Validation Performance Statistics
-cal_yrs
 
-R2 <- (sum((x_valid - mean(x_valid)) * (x_valid_post_m - mean(x_valid_post_m))))^2 / (sum((x_valid - mean(x_valid))^2) * sum((x_valid_post_m - mean(x_valid_post_m))^2))
-RE <- 1 - sum((x_valid - x_valid_post_m) ^ 2) / sum((x_valid - mean(x_full[cal_ids], na.rm = TRUE))^2)
-CE <- 1 - sum((x_valid - x_valid_post_m) ^ 2) / sum((x_valid - mean(x_full[hold_out])) ^ 2)
+# performance statistics just using median of posterior prob for valid data
+performance_df <- perf_stats(est_valid = x_valid_post_m, observed = x_full, valid_id = hold_out, cal_id = cal_ids, mod_id = "negexp_linear")
 
 # reconstruction plot
-recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)")
+recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Mean Jan-Jul Precip. (cm)")
 
 recon2 <- recon + theme_bw_poster()
 ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_norm_poster.pdf", dpi = 300)
@@ -251,7 +249,7 @@ recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_norm_paper.pdf", dpi = 1000)
 
 # consider doing observed values as points to better see where they fall within the credible interval
-recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)", valid_yrs = years[hold_out])
+recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Mean Jan-Jul Precip. (cm)", valid_yrs = years[hold_out])
 recon_valid2 <- recon_valid + theme_bw_poster()
 ggsave(plot = recon_valid2, filename = "Results/Figures/NM/negexp_norm_poster_valid.pdf", dpi = 300)
 
@@ -345,18 +343,19 @@ plot(x_valid, x_valid_post_m, type = "p")
 abline(0, 1, col = "red")
 cor(x_valid, x_valid_post_m)
 
-res2 <- (x_valid_post_m - x_valid)^2
-sqrt(sum(res2) / length(x_valid_post_m))
-sqrt(mean(res2))
+# Validation Performance Statistics
+
+# performance statistics just using median of posterior prob for valid data
+performance_df[2, ] <- perf_stats(est_valid = x_valid_post_m, observed = x_full, valid_id = hold_out, cal_id = cal_ids, mod_id = "negexp_1change")
 
 # reconstruction plot
-recon <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)")
+recon <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full) , y_lab = "Mean Jan-Jul Precip. (cm)")
 
 # consider doing observed values as points to better see where they fall within the credible interval
-recon_valid <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)", valid_yrs = years[hold_out])
+recon_valid <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full) , y_lab = "Mean Jan-Jul Precip. (cm)", valid_yrs = years[hold_out])
 
 # reconstruction plot
-recon <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)")
+recon <- plot_recon(m_negexp_1change, obs = data.frame(year = years, value = x_full) , y_lab = "Mean Jan-Jul Precip. (cm)")
 
 recon2 <- recon + theme_bw_poster()
 ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_1change_poster.pdf", dpi = 300)
@@ -434,10 +433,19 @@ save(m_none_1change, file = "Results/NM/JAGS/none_1change.RData")
 
 plot(m_none_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1")])
 par(mfrow = c(1,1))
-x_id_50 = which(substr(varnames(m_none_1change),1,2)=="x[") # finds the indices of the x variables
-post_climate_50 = colMeans(as.matrix(m_none_1change[,x_id_50])) # finds the posterior mean of the x variables
-# plot(post_climate_50,type="l") # plots the posterior mean of the x variables
-plot(years, post_climate_50*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
+
+x_id_50 = which(substr(varnames(m_none_1change),1,2)=="x[") 
+post_climate_50 = colMeans(as.matrix(m_none_1change[,x_id_50]))
+x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+x_valid <- x_full[hold_out]
+plot(x_valid, x_valid_post_m, type = "p")
+abline(0, 1, col = "red")
+cor(x_valid, x_valid_post_m)
+
+# Validation Performance Statistics
+
+# performance statistics just using median of posterior prob for valid data
+performance_df[3, ] <- perf_stats(est_valid = x_valid_post_m, observed = x_full, valid_id = hold_out, cal_id = cal_ids, mod_id = "mean_1change")
 
 rm(out)
 rm(m_none_1change)
@@ -507,54 +515,35 @@ system.time({
 stopCluster(cl)
 
 # Results
-m_spline_50 <- mcmc.list(out)
-save(m_spline_50, file = "Results/NM/JAGS/negexp_spline25.RData")
+m_spline_25 <- mcmc.list(out)
+save(m_spline_25, file = "Results/NM/JAGS/negexp_spline25.RData")
 
-# 
-# m_spline_50 = jags.model('Code/JAGS/climate_spline.txt', 
-#                          list(y = log_y, 
-#                               f = f, 
-#                               l = l, 
-#                               M = M, 
-#                               Tea = Tea, 
-#                               a = a_use, 
-#                               x = x_use,
-#                               B = B,
-#                               H = H), 
-#                          inits = initialize_spl, 
-#                          n.chains = 3, 
-#                          n.adapt = 3000)
-# 
-# out_m_climate_spline_50 = coda.samples(m_spline_50, c("x", "mu_a0", "mu_a1", "sd_a0", "sd_a1", "sd_eta", "sd_x", "sd_y", "mu_gamma", "sd_g"), 2000)
-
-plot(m_spline_50[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "mu_gamma", "sd_g")])
+plot(m_spline_25[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "mu_gamma", "sd_g")])
 par(mfrow = c(1,1))
-x_id_50 = which(substr(varnames(m_spline_50),1,2)=="x[") # finds the indices of the x variables
-post_climate_50 = colMeans(as.matrix(m_spline_50[,x_id_50])) # finds the posterior mean of the x variables
-plot(post_climate_50,type="l") # plots the posterior mean of the x variables
-plot(years, post_climate_50*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
 
-# validation
-x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+x_id_25 = which(substr(varnames(m_spline_25),1,2)=="x[") 
+post_climate_25 = colMeans(as.matrix(m_spline_25[,x_id_25]))
+x_valid_post_m <- post_climate_25[hold_out]*x_sd + x_mean
 x_valid <- x_full[hold_out]
 plot(x_valid, x_valid_post_m, type = "p")
 abline(0, 1, col = "red")
 cor(x_valid, x_valid_post_m)
 
-res2 <- (x_valid_post_m - x_valid)^2
-sqrt(sum(res2) / length(x_valid_post_m))
-sqrt(mean(res2))
+# Validation Performance Statistics
+
+# performance statistics just using median of posterior prob for valid data
+performance_df[4, ] <- perf_stats(est_valid = x_valid_post_m, observed = x_full, valid_id = hold_out, cal_id = cal_ids, mod_id = "negexp_spline25")
 
 # reconstruction plots
-recon <- plot_recon(m_spline_50)
-ggsave(filename = "Results/Figures/torn_recon_post_spl50.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
+recon <- plot_recon(m_spline_25)
+ggsave(filename = "Results/Figures/torn_recon_post_spl25.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
 
-recon_valid <- plot_recon(m_spline_50, valid_yrs = year[hold_out])
-ggsave(filename = "Results/Figures/torn_recon_spl50_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
+recon_valid <- plot_recon(m_spline_25, valid_yrs = year[hold_out])
+ggsave(filename = "Results/Figures/torn_recon_spl25_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
 
 
 # reconstruction plot
-recon <- plot_recon(m_spline_50, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)")
+recon <- plot_recon(m_spline_25, obs = data.frame(year = years, value = x_full) , y_lab = "Mean Jan-Jul Precip. (cm)")
 
 recon2 <- recon + theme_bw_poster()
 ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_spline25_poster.pdf", dpi = 300)
@@ -563,7 +552,7 @@ recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_spline25_paper.pdf", dpi = 1000)
 
 rm(out)
-rm(m_spline_50)
+rm(m_spline_25)
 
 
 #####
@@ -682,19 +671,19 @@ if(FALSE) {
         dplyr::filter(year %in% valid_yrs)
       
       g <- ggplot(temp_valid, aes(x = year, y = temp))
-      g <- g + geom_fan() + geom_line(data = climate_valid, aes(year, temp), colour = "red") + ylab("Annual Precipitation (cm)") + xlab("Year") + scale_fill_distiller() + theme_bw()
+      g <- g + geom_fan() + geom_line(data = climate_valid, aes(year, temp), colour = "red") + ylab("Mean Jan-Jul Precip. (cm)") + xlab("Year") + scale_fill_distiller() + theme_bw()
     } else {
       # scaled posterior interval
       g <- ggplot(temp_df_long, aes(x = year, y = temp))
-      g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab("Annual Precipitation (cm)") + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
+      g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab("Mean Jan-Jul Precip. (cm)") + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
     }
     return(g)
   }
   
-  recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)")
+  recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Mean Jan-Jul Precip. (cm)")
   
   # consider doing observed values as points to better see where they fall within the credible interval
-  recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)", valid_yrs = years[hold_out])
+  recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Mean Jan-Jul Precip. (cm)", valid_yrs = years[hold_out])
   
   ## any better than random points around the mean?
   
@@ -884,19 +873,19 @@ if(FALSE) {
         dplyr::filter(year %in% valid_yrs)
       
       g <- ggplot(temp_valid, aes(x = year, y = temp))
-      g <- g + geom_fan() + geom_line(data = climate_valid, aes(year, temp), colour = "red") + ylab("Annual Precipitation (cm)") + xlab("Year") + scale_fill_distiller() + theme_bw()
+      g <- g + geom_fan() + geom_line(data = climate_valid, aes(year, temp), colour = "red") + ylab("Mean Jan-Jul Precip. (cm)") + xlab("Year") + scale_fill_distiller() + theme_bw()
     } else {
       # scaled posterior interval
       g <- ggplot(temp_df_long, aes(x = year, y = temp))
-      g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab("Annual Precipitation (cm)") + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
+      g <- g + geom_fan() + geom_line(data = obs, aes(x = year, y = value), colour="black", size = 0.2) + ylab("Mean Jan-Jul Precip. (cm)") + xlab("Year") + theme_bw() + scale_fill_distiller() #x_full),
     }
     return(g)
   }
   
-  recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)")
+  recon <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Mean Jan-Jul Precip. (cm)")
   
   # consider doing observed values as points to better see where they fall within the credible interval
-  recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Annual Precipitation (cm)", valid_yrs = years[hold_out])
+  recon_valid <- plot_recon(m_negexp_norm, obs = data.frame(year = years, value = x_full) , y_lab = "Mean Jan-Jul Precip. (cm)", valid_yrs = years[hold_out])
   
   ## any better than random points around the mean?
   

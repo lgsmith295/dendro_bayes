@@ -9,7 +9,9 @@ Icon
 "Icon"
 Results/
 RAW/
-Presentations/
+!Presentations
+Presentations/*
+!Presentations/hocking_smith_dendrobayes_AAG_2019.pptx
 .dropbox
 !Data/
 Data/*

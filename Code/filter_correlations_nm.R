@@ -3,6 +3,7 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(treeclim)
+source("Code/functions.R")
 
 load(file = "Data/az_nm/raw_2904.RData")
 
@@ -21,7 +22,7 @@ core_cors <- corr.rwl.seg(y_ji, make.plot = FALSE)
 # 0.4 typical cutoff with overall correlation across full series in east
 rho <- as.data.frame(core_cors$overall, stringsAsFactors = FALSE)
 rho$core <- rownames((core_cors$overall))
-keep_cores <- as.character(rho[which(rho$rho > 0.5), "core"])
+keep_cores <- as.character(rho[which(rho$rho > 0.4), "core"])
 
 raw_cor <- raw %>%
   dplyr::filter(core %in% keep_cores)
@@ -39,6 +40,8 @@ y_ji <- raw_cor %>%
 # summary(y_detrend_negexp[ , 1])
 
 y_detrend_negexp_info <- detrend(as.data.frame(y_ji), method = "ModNegExp", return.info = TRUE, constrain.nls = "always")
+
+y_detrend_negexp <- detrend(as.data.frame(y_ji), method = "ModNegExp", return.info = FALSE, constrain.nls = "always")
 
 if(FALSE) {
 # could run each model and then do the automated detrending based on negative values being produced in each method going down a list of prefernces
@@ -69,11 +72,40 @@ detrend_method[which(detrend_method != "NegativeExponential")]
 
 }
 
-########### check correlations with climate and remove cores? #############
+##### Make Chronology #####
 
+crn <- chron(y_detrend_negexp)
+
+##### Run treeclim to look for correlated climate #####
 # load climate 
 load("Data/az_nm/annual_ppt_cm.RData")
 
+months_df <- data.frame(month = c("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"),
+                        mon = 1:12, stringsAsFactors = FALSE)
+
+climate_mo2 <- climate_mo %>%
+  left_join(months_df) %>%
+  dplyr::select(year, mon, prec) %>%
+  rename(month = mon)
+  
+climate_13mo <- climate_mo2 %>%
+  spread(month, prec) %>%
+  as.data.frame(. , stringsAsFactors = FALSE)
+
+rownames(crn) <- years
+
+dcc1 <- dcc(chrono = crn, climate = climate_13mo, selection = -12:12)
+plot(dcc1)
+
+# Use January through July for correlated climate
+climate_jj <- data.frame(year = climate_13mo$year, precip = apply(climate_13mo[ , 2:8], MARGIN = 1, FUN = mean), stringsAsFactors = FALSE)
+
+climate2 <- climate_jj
+save(climate2, file = "Data/az_nm/jan_jul_ppt_cm.RData")
+  
+########### check correlations with climate and remove cores? #############
+
+if(FALSE) {
 # make single chronology to check with treeclim using detrended series
 chron1 <- chron(y_detrend_negexp_info$series[1950:2010, ])
 
@@ -97,6 +129,7 @@ g_test(dc7, sb = FALSE)
 # sc1 <- seascorr(chron1, clim) # if using prcp and temp
 
 # Not really sure how to use treeclim and don't have time. It's not showing any real correlations.
+}
 
 ##### Check for correlations manually with each core and annual precip #####
 # gather detrended 
@@ -109,11 +142,11 @@ detrended <- y_detrend_negexp_info$series %>%
   summarise(cor = cor(detrend_rwl, precip, use = "pairwise.complete.obs", method = "spearman"))
 
 summary(detrended)
-dim(detrended[which(detrended$cor < 0.2), ])
+dim(detrended[which(detrended$cor < 0.4), ])
 
 hist(detrended$cor)
 
-bad_cores <- detrended[which(detrended$cor < 0.2), ]$core # not sure what cutoff to use. A bit arbitrary, but at least get rid of cores with little to no correlation
+bad_cores <- detrended[which(detrended$cor < 0.4), ]$core # not sure what cutoff to use. A bit arbitrary, but at least get rid of cores with little to no correlation
 
 cores <- unique(raw_cor$core)
 keep_cores2 <- keep_cores[which(!(keep_cores %in% bad_cores))]
@@ -135,6 +168,9 @@ samp_depth <- raw_cor2 %>%
 
 g <- ggplot(samp_depth, aes(year, n)) + geom_line(aes(color = sp_code)) + ylab("Number of cores (sample depth)") + xlab("Year") + theme_bw() + labs(color = "Sp. Code") # consider cutting reconstruction at year 1000 (good depth of 1 species) or 1700 (good depth of 3 species)
 ggsave("Results/Figures/NM/sample_depth.pdf")
+
+g + theme_bw_poster()
+ggsave("Results/Figures/NM/sample_depth_poster.pdf")
 
 g + geom_hline(yintercept = 10, color = "red")
 

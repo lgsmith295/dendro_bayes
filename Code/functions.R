@@ -117,6 +117,17 @@ plot_recon_temp <- function(mcmc, obs = climate_df, x_mean = x_mean, x_sd = x_sd
   return(g)
 }
 
+# Performance statistics
+perf_stats <- function(est_valid, observed, valid_id = hold_out, cal_id = cal_ids, mod_id = "m") {
+  x_valid <- observed[valid_id]
+  R2 <- sum((est_valid - mean(x_valid))^2) / sum((x_valid - mean(x_valid))^2)
+  Pearson_R2 <- (sum((x_valid - mean(x_valid)) * (est_valid - mean(est_valid))))^2 / (sum((x_valid - mean(x_valid))^2) * sum((est_valid - mean(est_valid))^2))
+  RE <- 1 - sum((x_valid - est_valid) ^ 2) / sum((x_valid - mean(x_full[cal_id], na.rm = TRUE))^2)
+  CE <- 1 - sum((x_valid - est_valid) ^ 2) / sum((x_valid - mean(x_full[valid_id])) ^ 2)
+  
+  df <- data.frame(model = mod_id, R2, Pearson_R2, RE, CE, stringsAsFactors = FALSE)
+  return(df)
+}
 
 
 # create observed vs expected plot with CRI?????
