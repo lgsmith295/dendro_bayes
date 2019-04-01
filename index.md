@@ -1,7 +1,7 @@
 ---
 title: "Hierarchical Bayesian Climate Reconstruction Using Tree-Ring Data"
 author: "Daniel J Hocking and Laura G Smith"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: "01 April, 2019"
 output: 
   html_document: 
     keep_md: yes
