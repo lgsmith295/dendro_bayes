@@ -220,6 +220,8 @@ save(m_negexp_norm, file = "Results/NM/JAGS/negexp_norm.RData")
 plot(m_negexp_norm[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]")])
 par(mfrow = c(1,1))
 
+gelman.diag(m_negexp_norm[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]")])
+
 summary(m_negexp_norm[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]")])
 
 x_id_50 = which(substr(varnames(m_negexp_norm),1,2)=="x[") # finds the indices of the x variables
@@ -266,7 +268,9 @@ rm(m_negexp_norm)
 
 ##### negexp detrend 1 changepoint climate ####
 
-x_min <- (0 - x_mean) / x_sd # value of x on standardized scale when climate = 0
+# x_min <- (0 - x_mean) / x_sd # value of x on standardized scale when climate = 0
+x_min <- min(x_use, na.rm = TRUE)
+x_max <- max(x_use, na.rm = TRUE)
 
 initialize_m2_nc = function(){
   alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25)
@@ -276,6 +280,7 @@ initialize_m2_nc = function(){
   mu_a1 = mean(alpha1)
   sd_a0 = sd(alpha0)
   sd_a1 = sd(alpha1)
+  x_1 = runif(1, -0.5, 0.5)
   eta = matrix(rnorm(Tea*K, 0, 0.25), Tea, K)
   beta0 <- matrix(NA, nrow = K, ncol = 2)
   for(k in 1:K) {
@@ -293,6 +298,7 @@ initialize_m2_nc = function(){
               # sd_a0 = sd_a0,
               # sd_a1 = sd_a1,
               sd_eta = sd_eta,
+              x_1 = x_1,
               beta0 = beta0,
               sd_x = sd_x))
 }
@@ -306,6 +312,7 @@ m2_nc_data <- list(y = log_y,
                    K = K,
                    species = species,
                    x_min = x_min,
+                   x_max = x_max,
                    # v = 410, # or 320 
                    x = x_use)
 
@@ -331,6 +338,9 @@ save(m_negexp_1change, file = "Results/NM/JAGS/negexp_1change.RData")
 
 plot(m_negexp_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1")])
 par(mfrow = c(1,1))
+
+gelman.diag(m_negexp_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1")])
+
 x_id_50 = which(substr(varnames(m_negexp_1change),1,2)=="x[") # finds the indices of the x variables
 post_climate_50 = colMeans(as.matrix(m_negexp_1change[,x_id_50])) # finds the posterior mean of the x variables
 # plot(post_climate_50,type="l") # plots the posterior mean of the x variables
@@ -433,6 +443,10 @@ save(m_none_1change, file = "Results/NM/JAGS/none_1change.RData")
 
 plot(m_none_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1")])
 par(mfrow = c(1,1))
+
+summary(m_none_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1")])
+
+gelman.diag(m_none_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1")])
 
 x_id_50 = which(substr(varnames(m_none_1change),1,2)=="x[") 
 post_climate_50 = colMeans(as.matrix(m_none_1change[,x_id_50]))
