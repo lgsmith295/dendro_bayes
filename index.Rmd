@@ -102,7 +102,7 @@ The first model was the same as model MB_TS_CON in Schofield et al. (2016). Mode
 
 library(knitr)
 
-include_graphics("Results/Figures/JAGS/negexp_norm_paper.pdf")
+include_graphics("Results/Figures/JAGS/negexp_norm_paper.png")
 
 ```
 
@@ -140,7 +140,7 @@ include_graphics("Results/Figures/JAGS/spline_norm_paper.pdf")
 
 library(knitr)
 
-include_graphics("Results/Figures/JAGS/negexp_linear_ar_paper.pdf")
+include_graphics("Results/Figures/JAGS/negexp_linear_ar_paper.png")
 
 ```
 
@@ -148,11 +148,11 @@ include_graphics("Results/Figures/JAGS/negexp_linear_ar_paper.pdf")
 
 To relax the assumption of a stable climate, Schofield et al. (2016) developed a model with a cubic B-spline. We followed that approach here for this reconstruction. 
 
-```{r, fig.cap="Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a linear relationship with climate, and that climate is stable following a normal distribution. The model also allows for autocorrelation with the previous year (AR1).", echo=FALSE, out.width="75%"}
+```{r, fig.cap="Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a linear relationship with climate, and that climate is unstable varying smoothly and estimated with a cubic B-Spline.", echo=FALSE, out.width="75%"}
 
 library(knitr)
 
-include_graphics("Results/Figures/JAGS/negexp_linear_ar_paper.pdf")
+include_graphics("Results/Figures/JAGS/negexp_spl25_paper.pdf")
 
 ```
 

@@ -42,6 +42,7 @@ recon2 <- recon + theme_bw_poster() + ylim(0, 20) # + ggtitle("NegExp with Linea
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_norm_poster.pdf", dpi = 300)
 recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_norm_paper.pdf", dpi = 1000)
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_norm_paper.png")
 
 recon_valid <- plot_recon(outM2_nc, valid_yrs = years[hold_out], obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_negexp_linear_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
@@ -154,6 +155,7 @@ recon2 <- recon + theme_bw_poster() + ylim(0, 20) # # + ggtitle("Cubic Spline wi
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/spline_norm_poster.pdf", dpi = 300)
 recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/spline_norm_paper.pdf", dpi = 1000)
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/spline_norm_paper.png")
 
 recon_valid <- plot_recon(out_detrend_spl, valid_yrs = years[hold_out], obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_spline_linear_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
@@ -180,8 +182,9 @@ ggsave(filename = "Results/Figures/JAGS/torn_recon_post_negexp_linear_ar.tiff", 
 recon <- plot_recon(our_ar, obs = data.frame(year = years, value = x_full))
 recon2 <- recon + theme_bw_poster() + ylim(0, 20) + xlim(1497, 1995)
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_linear_ar_poster.pdf", dpi = 300)
-recon2 <- recon + theme_bw_journal()
+recon2 <- recon + theme_bw_journal() + ylim(0, 20) + xlim(1497, 1995)
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_linear_ar_paper.pdf", dpi = 1000)
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_linear_ar_paper.png")
 
 recon_valid <- plot_recon(our_ar, valid_yrs = years[hold_out], obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_spline_linear_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 

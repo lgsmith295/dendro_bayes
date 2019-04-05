@@ -99,13 +99,32 @@ The first model was the same as model MB_TS_CON in Schofield et al. (2016). Mode
 **This model overcomes the segment length curse.** Estimating the components of the model simultaneously and having known ages with partial pooling overcomes the segment length curse and is described in the supplements of Schofield et al. (2016). Partial pooling is a result of a hierarchical model on $\alpha_{0i}$ and $\alpha_{1i}$ so that each tree gets its own detrending curve but those curves are drawn from a normal distribution with a common mean and variance.
 
 <div class="figure">
-<img src="Results/Figures/JAGS/negexp_norm_paper.pdf" alt="Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a linear relationship with climate, and that climate is stable following a normal distribution." width="75%" />
+<img src="Results/Figures/JAGS/negexp_norm_paper.png" alt="Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a linear relationship with climate, and that climate is stable following a normal distribution." width="75%" />
 <p class="caption">Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a linear relationship with climate, and that climate is stable following a normal distribution.</p>
 </div>
 
 ### Spline Detrending
 
 This is a similar model but with 2/3 cubic spline detrending rather than negative exponential. One limitation currently is that there is no restriction to have monotonically decreasing curves and some recently sampled young trees experiencing rapid climate warming will have increasing biological growth curves, thereby obscurring some recent climate warming.
+
+Below is an example of the detrending from three single series that were done simultaneously with the climate reconstruction.
+
+
+```r
+include_graphics("Results/Figures/Detrend/Splines/detrend_tree_spl_4.pdf")
+```
+
+
+```r
+include_graphics("Results/Figures/Detrend/Splines/detrend_tree_spl_240.pdf")
+```
+
+
+```r
+include_graphics("Results/Figures/Detrend/Splines/detrend_tree_spl_245.pdf")
+```
+
+Below is the resulting reconstruction.
 
 <div class="figure">
 <img src="Results/Figures/JAGS/spline_norm_paper.pdf" alt="Mean annual temperature reconstruction for Tornestrask, Sweden assuming a smooth biological growth function (spline), a linear relationship with climate, and that climate is stable following a normal distribution." width="75%" />
@@ -115,7 +134,7 @@ This is a similar model but with 2/3 cubic spline detrending rather than negativ
 ### Negative Exponential with AR1
 
 <div class="figure">
-<img src="Results/Figures/JAGS/negexp_linear_ar_paper.pdf" alt="Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a linear relationship with climate, and that climate is stable following a normal distribution. The model also allows for autocorrelation with the previous year (AR1)." width="75%" />
+<img src="Results/Figures/JAGS/negexp_linear_ar_paper.png" alt="Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a linear relationship with climate, and that climate is stable following a normal distribution. The model also allows for autocorrelation with the previous year (AR1)." width="75%" />
 <p class="caption">Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a linear relationship with climate, and that climate is stable following a normal distribution. The model also allows for autocorrelation with the previous year (AR1).</p>
 </div>
 
@@ -124,8 +143,8 @@ This is a similar model but with 2/3 cubic spline detrending rather than negativ
 To relax the assumption of a stable climate, Schofield et al. (2016) developed a model with a cubic B-spline. We followed that approach here for this reconstruction. 
 
 <div class="figure">
-<img src="Results/Figures/JAGS/negexp_linear_ar_paper.pdf" alt="Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a linear relationship with climate, and that climate is stable following a normal distribution. The model also allows for autocorrelation with the previous year (AR1)." width="75%" />
-<p class="caption">Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a linear relationship with climate, and that climate is stable following a normal distribution. The model also allows for autocorrelation with the previous year (AR1).</p>
+<img src="Results/Figures/JAGS/negexp_spl25_paper.pdf" alt="Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a linear relationship with climate, and that climate is unstable varying smoothly and estimated with a cubic B-Spline." width="75%" />
+<p class="caption">Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a linear relationship with climate, and that climate is unstable varying smoothly and estimated with a cubic B-Spline.</p>
 </div>
 
 A problem with this model is that estimates go into unrealistic space. Trees stop growth at very low temperatures and this changes the relationship between temperature and tree growth. Therefore this extrapolation of a linear model allows for biologically unrealistic relationships. The following models attempt to address this issue.
