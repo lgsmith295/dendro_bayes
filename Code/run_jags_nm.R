@@ -1,5 +1,5 @@
 #####################################################################
-# Hierarchical reconstruction of precip from western NM multispecies tree rings
+# Hierarchical reconstruction of precip from southest mountains NM multispecies tree rings
 # NOAA Climate Division CONUS 2904
 # Annual precip to start
 #
@@ -154,7 +154,7 @@ if(FALSE) {
 
 species <- as.integer(as.factor(y_ij$sp_code))
 
-save(climate2, years, M, Tea, log_y, x_full, a_use, K, cores, x_mean, x_sd, x_use, species, nb, ni, nt, file = "Results/NM/JAGS/model_prep_nm.RData")
+save(climate2, years, M, Tea, log_y, x_full, a_use, K, cores, x_mean, x_sd, x_use, species, nb, ni, nt, hold_out, cal_ids, file = "Results/NM/JAGS/model_prep_nm.RData")
 
 ########## Run Models ###########
 

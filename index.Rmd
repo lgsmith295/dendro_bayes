@@ -9,6 +9,12 @@ output:
   word_document: default
 ---
 
+**Note**: *All results are currently preliminary. This site will be updated regularly as analysis progresses.*
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+```
+
 ## Abstract
 
 Tree growth is often limited in part by temperature or precipitation. Scientists have exploited this relationship to reconstruct climate over centuries and even millennia. However, annual tree ring growth is also a result of allometric growth patterns and non-climate related environmental variables. The traditional approach to reconstruction is to remove the influence of aging while maintaining the effect of climate common to the selected trees. The resulting chronologies are then regressed against the climate variable of interest. This has proven to be an effective strategy, but the uncertainty in the standardization and chronology building steps are not propagated to the reconstruction, thereby overestimating reconstruction confidence. Conducting the full process of standardization and reconstruction in one hierarchical Bayesian model allows for full estimation of paleoclimate uncertainty. We explored models using splines, negative exponential, linear, and constant age-related detrending using independent, partially-pooled, and regional-curve standardizations. We also examined models assuming stable climate or time-varying climate using splines. Finally, we created a changepoint model to allow variation in the relationship between tree growth and climate. We applied these models to Scots pine from Tornetrask, Sweden and to a multispecies reconstruction using all ITRDB records from the NOAA New Mexico Southwest Mountain climate division (29-04). We found that reconstructions differed less depending on the standardization method in the model than on the underlying assumption of the climate model. The uncertainty among models was greater than the uncertainty within models, which may not be clearly resolved from the validation data in the instrumental record.
@@ -113,15 +119,15 @@ This is a similar model but with 2/3 cubic spline detrending rather than negativ
 Below is an example of the detrending from three single series that were done simultaneously with the climate reconstruction.
 
 ```{r, eval=FALSE, out.width="75%", fig.cap="Spline detrending example"}
-include_graphics("Results/Figures/Detrend/Splines/detrend_tree_spl_4.pdf")
+include_graphics("Results/Figures/Detrend/Splines/detrend_tree_spl_4.png")
 ```
 
 ```{r, eval=FALSE, out.width="75%", fig.cap="Spline detrending example"}
-include_graphics("Results/Figures/Detrend/Splines/detrend_tree_spl_240.pdf")
+include_graphics("Results/Figures/Detrend/Splines/detrend_tree_spl_240.png")
 ```
 
 ```{r, eval=FALSE, out.width="75%", fig.cap="Spline detrending example"}
-include_graphics("Results/Figures/Detrend/Splines/detrend_tree_spl_245.pdf")
+include_graphics("Results/Figures/Detrend/Splines/detrend_tree_spl_245.png")
 ```
 
 Below is the resulting reconstruction.
@@ -130,7 +136,7 @@ Below is the resulting reconstruction.
 
 library(knitr)
 
-include_graphics("Results/Figures/JAGS/spline_norm_paper.pdf")
+include_graphics("Results/Figures/JAGS/spline_norm_paper.png")
 
 ```
 
@@ -152,7 +158,7 @@ To relax the assumption of a stable climate, Schofield et al. (2016) developed a
 
 library(knitr)
 
-include_graphics("Results/Figures/JAGS/negexp_spl25_paper.pdf")
+include_graphics("Results/Figures/JAGS/negexp_spl25_paper.png")
 
 ```
 
@@ -166,7 +172,7 @@ For this model we assume a stable climate but allow the relationship between cli
 
 library(knitr)
 
-include_graphics("Results/Figures/JAGS/negexp_1change_paper.pdf")
+include_graphics("Results/Figures/JAGS/negexp_1change_paper.png")
 
 ```
 
@@ -180,13 +186,21 @@ Our final model using a negative exponential regional curve standardization (Neg
 
 library(knitr)
 
-include_graphics("Results/Figures/JAGS/rcs_spline_25_paper.pdf")
+include_graphics("Results/Figures/JAGS/rcs_spline_25_paper.png")
 
 ```
 
 This model also keeps the reconstructed climate within biologically realistic bounds but relaxes the assumption of a stable climate. **There is a large amount of variation in reconstructions depending on model assumptions, even among models that validate well and produce biologically realistic estimates.**
 
 In the future it may be worth trying a NegExp-RCS model with a piecewise linear climate relationship, and a climate that can vary smoothly over time and adding an AR1 term (maybe unnecessary with a spline).
+
+The summary statistics are found below. These can be helpful **but reducing an entire model output to a single statistics should be used with caution and only as part of the evaluation process**, as discussed by Schofield and Barker (2018).
+
+```{r, echo=FALSE, results = "asis"}
+library(knitr)
+torn_stats <- read.csv("Results/torn_performance_stats.csv", header = TRUE, stringsAsFactors = FALSE)
+knitr::kable(torn_stats, caption = "Summary statistics of Tornetrask held out validation data.")
+```
 
 ## Methods
 
@@ -212,9 +226,42 @@ We removed any series that did not correlate with these climate data (spearman $
 
 ### Data
 
+The data used in these analyses are found [here](https://github.com/djhocking/dendro_bayes/tree/master/Data/az_nm) on GitHub.
+
 ### Code
 
-## Results
+The model code can be found [on GitHub](https://github.com/djhocking/dendro_bayes/tree/master/Code). The files to run the analysis are:
+
+```
+1. prep_multispecies.R
+2. filter_correlations_nm.R
+3. run_jags_nm.R
+4. summarize_nm.R
+```
+
+The code for all of the different JAGS models can be found [here](https://github.com/djhocking/dendro_bayes/tree/master/Code/JAGS) on GitHub.
+
+## New Mexico Results
+
+```{r, fig.cap="Mean Jan-July precipitation reconstruction from multispecies tree-ring data for the Southwest Mountains of New Mexico. This model assumes negative exponential biological growth, a linear climate relationship, and stably fluctuating climate (normal distribution).", echo=FALSE, out.width="75%"}
+
+library(knitr)
+include_graphics("Results/Figures/NM/negexp_norm_paper.png")
+```
+
+```{r, fig.cap="Mean Jan-July precipitation reconstruction from multispecies tree-ring data for the Southwest Mountains of New Mexico. This model assumes negative exponential biological growth, a piecewise linear climate relationship with unknown breakpoints for each species, and stably fluctuating climate (normal distribution).", echo=FALSE, out.width="75%"}
+
+library(knitr)
+include_graphics("Results/Figures/NM/negexp_1change_paper.png")
+```
+
+
+```{r, echo=FALSE, results = "asis"}
+library(knitr)
+nm_stats <- read.csv("Results/NM/nm_performance_stats.csv", header = TRUE, stringsAsFactors = FALSE)
+knitr::kable(nm_stats, caption = "Summary statistics of New Mexico (29-04) held out validation data.")
+```
+
 
 ## Discussion
 

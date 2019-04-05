@@ -213,6 +213,7 @@ recon2 <- recon + theme_bw_poster() + ylim(0, 20)
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_spl25_poster.pdf", dpi = 300)
 recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_spl25_paper.pdf", dpi = 1000)
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_spl25_paper.png")
 
 recon_valid <- plot_recon(out_m_climate_spline_25, valid_yrs = years[hold_out], obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_negexp_spl25_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
@@ -236,6 +237,7 @@ recon2 <- recon + theme_bw_poster() + ylim(0, 20)
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_1change_poster.pdf", dpi = 300)
 recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_1change_paper.pdf", dpi = 1000)
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_1change_paper.png")
 
 recon_valid <- plot_recon(m_negexp_1change, valid_yrs = years[hold_out], obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_negexp_1change_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 
@@ -277,6 +279,7 @@ recon2 <- recon + theme_bw_poster() + ylim(0, 20) # + ggtitle("NegExp RCS with 2
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/rcs_spline_25_poster.pdf", dpi = 300)
 recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/rcs_spline_25_paper.pdf", dpi = 1000)
+ggsave(plot = recon2, filename = "Results/Figures/JAGS/rcs_spline_25_paper.png")
 
 recon_valid <- plot_recon(m_rcs_spline_25, valid_yrs = years[hold_out], obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_rcs_spline_25_valid_back.tiff", plot = recon_valid, width = 8, height = 4, units = "in") 

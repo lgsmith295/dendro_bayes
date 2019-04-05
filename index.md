@@ -9,6 +9,10 @@ output:
   word_document: default
 ---
 
+**Note**: *All results are currently preliminary. This site will be updated regularly as analysis progresses.*
+
+
+
 ## Abstract
 
 Tree growth is often limited in part by temperature or precipitation. Scientists have exploited this relationship to reconstruct climate over centuries and even millennia. However, annual tree ring growth is also a result of allometric growth patterns and non-climate related environmental variables. The traditional approach to reconstruction is to remove the influence of aging while maintaining the effect of climate common to the selected trees. The resulting chronologies are then regressed against the climate variable of interest. This has proven to be an effective strategy, but the uncertainty in the standardization and chronology building steps are not propagated to the reconstruction, thereby overestimating reconstruction confidence. Conducting the full process of standardization and reconstruction in one hierarchical Bayesian model allows for full estimation of paleoclimate uncertainty. We explored models using splines, negative exponential, linear, and constant age-related detrending using independent, partially-pooled, and regional-curve standardizations. We also examined models assuming stable climate or time-varying climate using splines. Finally, we created a changepoint model to allow variation in the relationship between tree growth and climate. We applied these models to Scots pine from Tornetrask, Sweden and to a multispecies reconstruction using all ITRDB records from the NOAA New Mexico Southwest Mountain climate division (29-04). We found that reconstructions differed less depending on the standardization method in the model than on the underlying assumption of the climate model. The uncertainty among models was greater than the uncertainty within models, which may not be clearly resolved from the validation data in the instrumental record.
@@ -110,24 +114,15 @@ This is a similar model but with 2/3 cubic spline detrending rather than negativ
 Below is an example of the detrending from three single series that were done simultaneously with the climate reconstruction.
 
 
-```r
-include_graphics("Results/Figures/Detrend/Splines/detrend_tree_spl_4.pdf")
-```
 
 
-```r
-include_graphics("Results/Figures/Detrend/Splines/detrend_tree_spl_240.pdf")
-```
 
 
-```r
-include_graphics("Results/Figures/Detrend/Splines/detrend_tree_spl_245.pdf")
-```
 
 Below is the resulting reconstruction.
 
 <div class="figure">
-<img src="Results/Figures/JAGS/spline_norm_paper.pdf" alt="Mean annual temperature reconstruction for Tornestrask, Sweden assuming a smooth biological growth function (spline), a linear relationship with climate, and that climate is stable following a normal distribution." width="75%" />
+<img src="Results/Figures/JAGS/spline_norm_paper.png" alt="Mean annual temperature reconstruction for Tornestrask, Sweden assuming a smooth biological growth function (spline), a linear relationship with climate, and that climate is stable following a normal distribution." width="75%" />
 <p class="caption">Mean annual temperature reconstruction for Tornestrask, Sweden assuming a smooth biological growth function (spline), a linear relationship with climate, and that climate is stable following a normal distribution.</p>
 </div>
 
@@ -143,7 +138,7 @@ Below is the resulting reconstruction.
 To relax the assumption of a stable climate, Schofield et al. (2016) developed a model with a cubic B-spline. We followed that approach here for this reconstruction. 
 
 <div class="figure">
-<img src="Results/Figures/JAGS/negexp_spl25_paper.pdf" alt="Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a linear relationship with climate, and that climate is unstable varying smoothly and estimated with a cubic B-Spline." width="75%" />
+<img src="Results/Figures/JAGS/negexp_spl25_paper.png" alt="Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a linear relationship with climate, and that climate is unstable varying smoothly and estimated with a cubic B-Spline." width="75%" />
 <p class="caption">Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a linear relationship with climate, and that climate is unstable varying smoothly and estimated with a cubic B-Spline.</p>
 </div>
 
@@ -154,7 +149,7 @@ A problem with this model is that estimates go into unrealistic space. Trees sto
 For this model we assume a stable climate but allow the relationship between climate and tree growth to change with temperature. Schofield et al. (2016) used a piecewise linear regression to accomplish this because they had information from other studies to indicate that below 4 C the trees stop growth. So they had a fixed changepoint based on existing knowledge. 
 
 <div class="figure">
-<img src="Results/Figures/JAGS/negexp_1change_paper.pdf" alt="Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a piecewise linear relationship with climate with an unknown change point, and that climate is stable following a normal distribution." width="75%" />
+<img src="Results/Figures/JAGS/negexp_1change_paper.png" alt="Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a piecewise linear relationship with climate with an unknown change point, and that climate is stable following a normal distribution." width="75%" />
 <p class="caption">Mean annual temperature reconstruction for Tornestrask, Sweden assuming negative exponential biological growth function, a piecewise linear relationship with climate with an unknown change point, and that climate is stable following a normal distribution.</p>
 </div>
 
@@ -165,13 +160,27 @@ This model in an improvement allowing for more biological realism but keeping th
 Our final model using a negative exponential regional curve standardization (NegExp-RCS) where all trees are assumed to have the same growth at a given age following a negative exponential function. For this the parameters $\alpha_{0i}$ and $\alpha_{1i}$ are reduced to $\alpha_{0}$ and $\alpha_{1}$ such that they are the same across all trees of a given age. We used a basis spline with knots every 25 years.
 
 <div class="figure">
-<img src="Results/Figures/JAGS/rcs_spline_25_paper.pdf" alt="Mean annual temperature reconstruction for Tornestrask, Sweden assuming NegExp-RCS biological growth function, a linear relationship with climate, and that climate is unstable but varies smoothly over time (estimated with a B-spline)." width="75%" />
+<img src="Results/Figures/JAGS/rcs_spline_25_paper.png" alt="Mean annual temperature reconstruction for Tornestrask, Sweden assuming NegExp-RCS biological growth function, a linear relationship with climate, and that climate is unstable but varies smoothly over time (estimated with a B-spline)." width="75%" />
 <p class="caption">Mean annual temperature reconstruction for Tornestrask, Sweden assuming NegExp-RCS biological growth function, a linear relationship with climate, and that climate is unstable but varies smoothly over time (estimated with a B-spline).</p>
 </div>
 
 This model also keeps the reconstructed climate within biologically realistic bounds but relaxes the assumption of a stable climate. **There is a large amount of variation in reconstructions depending on model assumptions, even among models that validate well and produce biologically realistic estimates.**
 
 In the future it may be worth trying a NegExp-RCS model with a piecewise linear climate relationship, and a climate that can vary smoothly over time and adding an AR1 term (maybe unnecessary with a spline).
+
+The summary statistics are found below. These can be helpful **but reducing an entire model output to a single statistics should be used with caution and only as part of the evaluation process**, as discussed by Schofield and Barker (2018).
+
+
+Table: Summary statistics of Tornetrask held out validation data.
+
+model                            R2   Pearson_R2           RE           CE
+----------------------  -----------  -----------  -----------  -----------
+negexp_linear             0.1367167    0.1678179    0.3259110    0.1367167
+detrend_spline_linear    -0.0914733    0.1709258    0.1477304   -0.0914733
+negexp_linear_ar1         0.2599946    0.2645436    0.4221717    0.2599946
+negexp_spline25          -3.4408743    0.0698536   -2.4676269   -3.4408743
+negexp_changept           0.1214979    0.1648593    0.3140275    0.1214979
+negexp-RCS_spline25       0.0981762    0.1553992    0.2958169    0.0981762
 
 ## Methods
 
@@ -194,9 +203,44 @@ We removed any series that did not correlate with these climate data (spearman $
 
 ### Data
 
+The data used in these analyses are found [here](https://github.com/djhocking/dendro_bayes/tree/master/Data/az_nm) on GitHub.
+
 ### Code
 
-## Results
+The model code can be found [on GitHub](https://github.com/djhocking/dendro_bayes/tree/master/Code). The files to run the analysis are:
+
+```
+1. prep_multispecies.R
+2. filter_correlations_nm.R
+3. run_jags_nm.R
+4. summarize_nm.R
+```
+
+The code for all of the different JAGS models can be found [here](https://github.com/djhocking/dendro_bayes/tree/master/Code/JAGS) on GitHub.
+
+## New Mexico Results
+
+<div class="figure">
+<img src="Results/Figures/NM/negexp_norm_paper.png" alt="Mean Jan-July precipitation reconstruction from multispecies tree-ring data for the Southwest Mountains of New Mexico. This model assumes negative exponential biological growth, a linear climate relationship, and stably fluctuating climate (normal distribution)." width="75%" />
+<p class="caption">Mean Jan-July precipitation reconstruction from multispecies tree-ring data for the Southwest Mountains of New Mexico. This model assumes negative exponential biological growth, a linear climate relationship, and stably fluctuating climate (normal distribution).</p>
+</div>
+
+<div class="figure">
+<img src="Results/Figures/NM/negexp_1change_paper.png" alt="Mean Jan-July precipitation reconstruction from multispecies tree-ring data for the Southwest Mountains of New Mexico. This model assumes negative exponential biological growth, a piecewise linear climate relationship with unknown breakpoints for each species, and stably fluctuating climate (normal distribution)." width="75%" />
+<p class="caption">Mean Jan-July precipitation reconstruction from multispecies tree-ring data for the Southwest Mountains of New Mexico. This model assumes negative exponential biological growth, a piecewise linear climate relationship with unknown breakpoints for each species, and stably fluctuating climate (normal distribution).</p>
+</div>
+
+
+
+Table: Summary statistics of New Mexico (29-04) held out validation data.
+
+model                 R2   Pearson_R2      RE      CE
+----------------  ------  -----------  ------  ------
+negexp_linear      0.584        0.376   0.367   0.317
+negexp_1change     0.384        0.421   0.437   0.393
+mean_1change       0.651        0.448   0.401   0.353
+negexp_spline25    0.683        0.362   0.277   0.220
+
 
 ## Discussion
 
