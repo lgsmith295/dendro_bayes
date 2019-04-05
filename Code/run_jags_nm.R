@@ -33,9 +33,9 @@ if(testing) {
   nt = 1
   nc = 3
 } else {
-  nb = 5000
-  ni = 5000
-  nt = 5
+  nb = 10000
+  ni = 10000
+  nt = 10
   nc = 4
 }
 
@@ -154,7 +154,7 @@ if(FALSE) {
 
 species <- as.integer(as.factor(y_ij$sp_code))
 
-save(climate2, years, M, Tea, log_y, x_full, a_use, K, cores, x_mean, x_sd, x_use, species, file = "Results/NM/JAGS/model_prep_nm.RData")
+save(climate2, years, M, Tea, log_y, x_full, a_use, K, cores, x_mean, x_sd, x_use, species, nb, ni, nt, file = "Results/NM/JAGS/model_prep_nm.RData")
 
 ########## Run Models ###########
 
@@ -266,6 +266,114 @@ rm(m_negexp_norm)
 #####
 
 
+##### negexp detrend linear climate without holdout ####
+initialize_m2_nc = function(){
+  alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25)
+  alpha1 = -rlnorm(M, -1, 0.25)
+  sd_y = rlnorm(M, 0, 1) 
+  mu_a0 = mean(alpha0)
+  mu_a1 = mean(alpha1)
+  sd_a0 = sd(alpha0)
+  sd_a1 = sd(alpha1)
+  eta = matrix(rnorm(Tea*K, 0, 0.25), Tea, K)
+  # for(k in 1:K) {
+  #   sd_eta[k] = sd(eta[ , k])
+  # }
+  sd_eta = runif(K, 0.2, 0.3)
+  beta0 = rnorm(K, 0.5, 0.1)
+  sd_x = rlnorm(1, 0, 1) 
+  return(list(sd_y = sd_y,
+              alpha0 = alpha0,
+              alpha1 = alpha1,
+              # mu_a0 = mu_a0,
+              # mu_a1 = mu_a1,
+              # sd_a0 = sd_a0,
+              # sd_a1 = sd_a1,
+              sd_eta = sd_eta,
+              beta0 = beta0,
+              sd_x = sd_x))
+}
+
+m2_nc_data <- list(y = log_y, 
+                   f = f, 
+                   l = l, 
+                   M = M, 
+                   Tea = Tea, 
+                   a = a_use,
+                   K = K,
+                   species = species,
+                   # v = 410, # or 320 
+                   x = x_s)
+
+params <- c("x", "beta0", "sd_eta", "sd_x", "sd_y")
+
+cl <- makeCluster(nc)                       # Request # cores
+clusterExport(cl, c("m2_nc_data", "initialize_m2_nc", "params", "M", "f", "l", "K", "Tea", "a_use", "log_y", "x_use", "nb", "ni", "nt", "K", "species"))
+clusterSetRNGStream(cl = cl, 8675301)
+system.time({ 
+  out <- clusterEvalQ(cl, {
+    library(rjags)
+    jm <- jags.model("Code/JAGS/m2_nc_multisp.txt", m2_nc_data, initialize_m2_nc, n.adapt=nb, n.chains=1) # Compile model and run burnin
+    out <- coda.samples(jm, params, n.iter=ni, thin=nt) # Sample from posterior distribution
+    return(as.mcmc(out))
+  })
+}) # 
+
+stopCluster(cl)
+
+# Results
+m_negexp_norm_full <- mcmc.list(out)
+save(m_negexp_norm_full, file = "Results/NM/JAGS/negexp_norm_full.RData")
+
+plot(m_negexp_norm_full[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]")])
+par(mfrow = c(1,1))
+
+gelman.diag(m_negexp_norm_full[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]")])
+
+summary(m_negexp_norm_full[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]")])
+
+x_id_50 = which(substr(varnames(m_negexp_norm_full),1,2)=="x[") # finds the indices of the x variables
+post_climate_50 = colMeans(as.matrix(m_negexp_norm_full[,x_id_50])) # finds the posterior mean of the x variables
+# plot(post_climate_50,type="l") # plots the posterior mean of the x variables
+plot(years, post_climate_50*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
+
+# validation
+x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+x_valid <- x_full[hold_out]
+plot(x_valid, x_valid_post_m, type = "p")
+abline(0, 1, col = "red")
+cor(x_valid, x_valid_post_m)
+
+# Validation Performance Statistics
+
+# performance statistics just using median of posterior prob for valid data
+# performance_df <- perf_stats(est_valid = x_valid_post_m, observed = x_full, valid_id = hold_out, cal_id = cal_ids, mod_id = "negexp_linear")
+
+# reconstruction plot
+recon <- plot_recon(m_negexp_norm_full, obs = data.frame(year = years, value = x_full) , y_lab = "Mean Jan-Jul Precip. (cm)")
+
+recon2 <- recon + theme_bw_poster()
+ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_norm_full_poster.pdf", dpi = 300)
+
+recon2 <- recon + theme_bw_journal()
+ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_norm_full_paper.pdf", dpi = 1000)
+
+# consider doing observed values as points to better see where they fall within the credible interval
+recon_valid <- plot_recon(m_negexp_norm_full, obs = data.frame(year = years, value = x_full) , y_lab = "Mean Jan-Jul Precip. (cm)", valid_yrs = years[hold_out])
+recon_valid2 <- recon_valid + theme_bw_poster()
+ggsave(plot = recon_valid2, filename = "Results/Figures/NM/negexp_norm_full_poster_valid.pdf", dpi = 300)
+
+rm(out)
+rm(m_negexp_norm_full)
+
+## any better than random points around the mean?
+
+
+# recon + geom_smooth(se = FALSE) # do not do this with the MCMC chains. Maybe smooth through the mean or something else because this will kill the computer.
+
+#####
+
+
 ##### negexp detrend 1 changepoint climate ####
 
 # x_min <- (0 - x_mean) / x_sd # value of x on standardized scale when climate = 0
@@ -280,11 +388,11 @@ initialize_m2_nc = function(){
   mu_a1 = mean(alpha1)
   sd_a0 = sd(alpha0)
   sd_a1 = sd(alpha1)
-  x_1 = runif(1, -0.5, 0.5)
+  x_1 = runif(K, -1.1, -0.5)
   eta = matrix(rnorm(Tea*K, 0, 0.25), Tea, K)
   beta0 <- matrix(NA, nrow = K, ncol = 2)
   for(k in 1:K) {
-    beta0[k, 1] = 0
+    beta0[k, 1] = rnorm(1, 1, 0.1)
     beta0[k, 2] = rnorm(1, 0.5, 0.1)
   #   sd_eta[k] = sd(eta[ , k])
   }
@@ -336,13 +444,23 @@ stopCluster(cl)
 m_negexp_1change <- mcmc.list(out)
 save(m_negexp_1change, file = "Results/NM/JAGS/negexp_1change.RData")
 
-plot(m_negexp_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1")])
+m_negexp_1change <- mcmc.list(m_negexp_1change[[2]], m_negexp_1change[[3]], m_negexp_1change[[4]])
+
+plot(m_negexp_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1[1]", "x_1[2]", "x_1[3]")])
 par(mfrow = c(1,1))
 
-gelman.diag(m_negexp_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1")])
+gelman.diag(m_negexp_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1[1]", "x_1[2]", "x_1[3]")])
+
+effectiveSize(m_negexp_1change[ ,c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1,1]", "beta0[2,1]", "beta0[3,1]", "beta0[1,2]", "beta0[2,2]", "beta0[3,2]", "x_1[1]", "x_1[2]", "x_1[3]")])
 
 x_id_50 = which(substr(varnames(m_negexp_1change),1,2)=="x[") # finds the indices of the x variables
-post_climate_50 = colMeans(as.matrix(m_negexp_1change[,x_id_50])) # finds the posterior mean of the x variables
+x_id_est <- x_id_50[!(x_id_50 %in% years[cal_ids])] # not working
+
+N_eff_x <- effectiveSize(as.matrix(m_negexp_1change[ , x_id_est])) #
+range(N_eff_x[which(N_eff_x > 0)])
+hist(N_eff_x[which(N_eff_x > 0)])
+
+post_climate_50 = colMeans(as.matrix(m_negexp_1change[ , x_id_50])) # finds the posterior mean of the x variables
 # plot(post_climate_50,type="l") # plots the posterior mean of the x variables
 plot(years, post_climate_50*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
 

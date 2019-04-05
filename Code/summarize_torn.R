@@ -26,6 +26,14 @@ load(file = "Results/JAGS/model_prep.RData") # climate_df, years, M, Tea, log_y,
 
 ##### negexp detrend linear climate M2-non-centered ####
 load(file = "Results/JAGS/M2_nc.RData")
+
+# performance statistics just using median of posterior prob for valid data
+x_id_50 <- which(substr(varnames(outM2_nc),1,2)=="x[") # finds the indices of the x variables
+post_climate_50 <- colMeans(as.matrix(outM2_nc[,x_id_50])) # finds the posterior mean of the x variables
+x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+performance_df <- perf_stats(est_valid = x_valid_post_m, observed = x_full, valid_id = hold_out, cal_id = cal_ids, mod_id = "negexp_linear")
+
+
 # Reconstruction
 recon <- plot_recon(outM2_nc, obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_post_negexp_linear.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
@@ -60,6 +68,13 @@ ggsave(filename = "Results/Figures/torn_recon_negexp_linear_valid_back.tiff", wi
 
 ##### spline on age standardization #####
 load(file = "Results/JAGS/detrend_spl.RData")
+
+# performance statistics just using median of posterior prob for valid data
+x_id_50 <- which(substr(varnames(out_detrend_spl),1,2)=="x[") # finds the indices of the x variables
+post_climate_50 <- colMeans(as.matrix(out_detrend_spl[,x_id_50])) # finds the posterior mean of the x variables
+x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+performance_df[2, ] <- perf_stats(est_valid = x_valid_post_m, observed = x_full, valid_id = hold_out, cal_id = cal_ids, mod_id = "detrend_spline_linear")
+
 
 if(!dir.exists("Results/Figures/Detrend/Splines/")) dir.create("Results/Figures/Detrend/Splines/", recursive = TRUE)
 
@@ -149,11 +164,21 @@ ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/spline_norm_poster_
 
 load(file = "Results/JAGS/our_ar.RData")
 
-# Reconstruction
+# performance statistics just using median of posterior prob for valid data
+x_id_50 <- which(substr(varnames(our_ar),1,2)=="x[") # finds the indices of the x variables
+post_climate_50 <- colMeans(as.matrix(our_ar[,x_id_50])) # finds the posterior mean of the x variables
+x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+performance_df[3, ] <- perf_stats(est_valid = x_valid_post_m, observed = x_full, valid_id = hold_out, cal_id = cal_ids, mod_id = "negexp_linear_ar1")
+
+# summary
+summary(our_ar[ , c("mu_a0", "alpha1", "sd_a0", "sd_eta", "sd_x", "beta0", "mean_delta")])
+
+# Reconstruction # change ylim to skip 1st year with AR model
 recon <- plot_recon(our_ar, obs = climate_df)
+recon <- recon + xlim(1497, 1995)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_post_negexp_linear_ar.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
 recon <- plot_recon(our_ar, obs = data.frame(year = years, value = x_full))
-recon2 <- recon + theme_bw_poster() + ylim(0, 20)
+recon2 <- recon + theme_bw_poster() + ylim(0, 20) + xlim(1497, 1995)
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_linear_ar_poster.pdf", dpi = 300)
 recon2 <- recon + theme_bw_journal()
 ggsave(plot = recon2, filename = "Results/Figures/JAGS/negexp_linear_ar_paper.pdf", dpi = 1000)
@@ -171,6 +196,12 @@ ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/negexp_linear_ar_po
 library(splines)
 load(file = "Results/JAGS/climate_spline_25.RData")
 
+# performance statistics just using median of posterior prob for valid data
+x_id_50 <- which(substr(varnames(out_m_climate_spline_25),1,2)=="x[") # finds the indices of the x variables
+post_climate_50 <- colMeans(as.matrix(out_m_climate_spline_25[,x_id_50])) # finds the posterior mean of the x variables
+x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+performance_df[4, ] <- perf_stats(est_valid = x_valid_post_m, observed = x_full, valid_id = hold_out, cal_id = cal_ids, mod_id = "negexp_spline25")
+
 # Reconstruction
 recon <- plot_recon(out_m_climate_spline_25, obs = climate_df)
 ggsave(filename = "Results/Figures/JAGS/torn_recon_post_negexp_spl25.tiff", plot = recon, width = 8, height = 4, units = "in") # , dpi = 1000) # poster vs paper formatting - see past work and make package or github source
@@ -187,6 +218,12 @@ ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/negexp_spl25_poster
 
 ##### negexp detrend 1 changepoint climate - seems good ####
 load(file = "Results/JAGS/negexp_1change.RData")
+
+# performance statistics just using median of posterior prob for valid data
+x_id_50 <- which(substr(varnames(m_negexp_1change),1,2)=="x[") # finds the indices of the x variables
+post_climate_50 <- colMeans(as.matrix(m_negexp_1change[,x_id_50])) # finds the posterior mean of the x variables
+x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+performance_df[5, ] <- perf_stats(est_valid = x_valid_post_m, observed = x_full, valid_id = hold_out, cal_id = cal_ids, mod_id = "negexp_changept")
 
 # Reconstruction
 recon <- plot_recon(m_negexp_1change, obs = climate_df)
@@ -208,6 +245,12 @@ ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/negexp_1change_post
 
 #### RCS (invariant) + climate spline 25 year knots #####
 load(file = "Results/JAGS/rcs_spline_25.RData")
+
+# performance statistics just using median of posterior prob for valid data
+x_id_50 <- which(substr(varnames(m_rcs_spline_25),1,2)=="x[") # finds the indices of the x variables
+post_climate_50 <- colMeans(as.matrix(m_rcs_spline_25[,x_id_50])) # finds the posterior mean of the x variables
+x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+performance_df[6, ] <- perf_stats(est_valid = x_valid_post_m, observed = x_full, valid_id = hold_out, cal_id = cal_ids, mod_id = "negexp-RCS_spline25")
 
 # validation
 x_id_25 = which(substr(varnames(m_rcs_spline_25),1,2)=="x[") # finds the indices of the x variables
@@ -238,3 +281,7 @@ recon_valid2 <- recon_valid + theme_bw_poster() + ylim(0, 20) # + ggtitle("NegEx
 ggsave(plot = recon_valid2, filename = "Results/Figures/JAGS/rcs_spline_25_poster_valid.pdf", dpi = 300)
 
 rm(m_rcs_spline_25)
+
+#####
+
+write.csv(performance_df, file = "Results/torn_performance_stats.csv", row.names = FALSE)

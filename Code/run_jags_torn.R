@@ -41,6 +41,7 @@ x_use <- x_s
 
 # Hold out years for validation (first half)
 hold_out <- 321:410  # the indices that we hold out
+cal_ids <- 411:500
 x_use[hold_out] <- NA
 
 # Get tree ring data
@@ -59,7 +60,7 @@ for(i in 1:M) {
 
 years <- unique(year)
 
-save(climate_df, years, M, Tea, log_y, x_full, a_use, x_sd, x_mean, hold_out, x_use, file = "Results/JAGS/model_prep.RData")
+save(climate_df, years, M, Tea, log_y, x_full, a_use, x_sd, x_mean, hold_out, x_use, cal_ids, file = "Results/JAGS/model_prep.RData")
 
 #### Does creating a standard chronology FORCE the climate reconstruction to be (normally) distributed with fluctuations around a mean????? Over flatten??? #####
 
@@ -91,7 +92,7 @@ if(testing) {
   nc = 3
 } else {
   nb = 10000
-  ni = 10000
+  ni = 20000
   nt = 10
   nc = 4
 }
@@ -351,13 +352,14 @@ m_ar = jags.model('Code/JAGS/linear_ar.txt',
                 inits = initialize_ar, 
                 n.chains = 3, 
                 n.adapt = 5000)
-our_ar = coda.samples(m_ar, c("x", "mu_a0", "sd_a0", "beta0", "sd_eta", "sd_x", "sd_y", "mean_delta"), 3000)
+our_ar = coda.samples(m_ar, c("x", "mu_a0", "alpha1", "sd_a0", "beta0", "sd_eta", "sd_x", "sd_y", "mean_delta"), 3000)
 
 save(our_ar, file = "Results/JAGS/our_ar.RData")
 
 plot(our_ar[ , c("mu_a0", "sd_a0", "sd_eta", "sd_x", "beta0", "mean_delta")])
 par(mfrow = c(1,1))
 
+summary(our_ar[ , c("mu_a0", "sd_a0", "sd_eta", "sd_x", "beta0", "mean_delta")])
 
 xidx = which(substr(varnames(our_ar),1,2)=="x[") # finds the indices of the x variables
 postxm = colMeans(as.matrix(our_ar[,xidx])) # finds the posterior mean of the x variables
