@@ -1,0 +1,42 @@
+model{
+
+for(i in 1:M){
+  for(j in f[i]:l[i]) {
+    y[i,j] ~ dnorm(alpha0[i] + alpha1[i]*a[i,j] + eta[j], 1/sd_y[i]/sd_y[i])
+  }
+  alpha0[i] ~ dnorm(mu_a0, 1/sd_a0/sd_a0)
+  alpha1[i] ~ dnorm(mu_a1, 1/sd_a1/sd_a1)T( ,0) # truncated norm
+  
+  sd_y[i] ~ dt(0, 0.04, 3)T(0, ) # variance differs by tree
+}
+
+mu_a0 ~ dnorm(0, 0.0001)
+mu_a1 ~ dnorm(0, 0.01)T( , 0) # truncated normal on mean but not alpha_a1 with this formulation
+sd_a0 ~ dt(0, 0.04, 3)T(0, )
+sd_a1 ~ dt(0, 0.04, 3)T(0, )
+
+for(t in 1:Tea) {
+  x[t] ~ dnorm(alpha_t[t], 1 / sd_x / sd_x)
+  alpha_t[t] <- B[t, ] %*% gamma[1:K]
+  eta[t] ~ dnorm(alpha_t[t] * x[t], 1 / sd_eta / sd_eta)
+}
+
+# alpha_t <- B %*% gamma
+  #  alpha_t <- B[ , 1:K] %*% gamma[1:K]
+
+   gamma[1:K] ~ dmnorm(gamma_0[1:K, 1] + gamma_00, lambda_x*Q[1:K, 1:K])
+   gamma_00 ~ dnorm(0, 1e-6) 
+   lambda_x ~ dgamma(0.001, 0.001)
+
+   # gamma_dt[1:K, i] <- gamma[1:K] - gamma_00
+   
+# mu_x ~ dnorm(0, 0.0001)
+sd_x ~ dt(0, 0.04, 3)T(0, )
+for(k in 1:K) {
+  gamma_0[k, 1] <- 0 # ~ dnorm(0, 0.001) # T(0, )
+  }
+
+sd_eta ~ dt(0, 0.04, 3)T(0, )
+
+}
+

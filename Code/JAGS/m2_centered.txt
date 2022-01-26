@@ -1,0 +1,48 @@
+model{
+
+for(i in 1:M){
+  for(j in f[i]:l[i]) {
+    y[i,j] ~ dnorm(alpha0[i] + alpha1[i]*a[i,j] + eta[j], 1/sd_y[i]/sd_y[i])
+  }
+  alpha0[i] <- mu_a0 + sd_a0 * eps_a0[i] # hierachrical centering
+  alpha1[i] <- mu_a1 + sd_a1 * eps_a1[i]
+#  alpha1[i] ~ dnorm(mu_a1, 1/sd_a1/sd_a1)T( ,0) # truncated norm
+  
+  eps_a0[i] ~ dnorm(0, 1)
+  eps_a1[i] ~ dnorm(0, 1)
+  
+  sd_y[i] ~ dt(0, 0.04, 3)T(0, ) # variance differs by tree
+}
+
+mu_a0 ~ dnorm(0, 0.0001)
+mu_a1 ~ dnorm(0, 0.0001)T( , 0) # truncated normal on mean but not alpha_a1 with this formulation
+sd_a0 ~ dt(0, 0.04, 3)T(0, )
+sd_a1 ~ dt(0, 0.04, 3)T(0, )
+
+# Hierarchical Centering
+for(t in 1:M) {
+  x[t] <- mu_x + sd_x * eps_x[t]
+  eps_x[t] ~ dnorm(0, 1)
+  eta[t] <- beta0 * x[t] + sd_eta * eps_eta[t]
+  eps_eta[t] ~ dnorm(0, 1)
+}
+
+for(t in (M+1):Tea) {
+  x[t] ~ dnorm(mu_x, 1 / sd_x / sd_x)
+  eta[t] <- beta0 * x[t] + sd_eta * eps_eta[t]
+  eps_eta[t] ~ dnorm(0, 1)
+}
+
+# Non-centered
+#for(t in 1:Tea) {
+#  x[t] ~ dnorm(mu_x, 1 / sd_x / sd_x)
+#  eta[t] <- beta0 * x[t] + sd_eta * eps_eta[t]
+#  eps_eta[t] ~ dnorm(0, 1)
+#}
+
+mu_x ~ dnorm(0, 0.0001)
+sd_x ~ dt(0, 0.04, 3)T(0, )
+beta0 ~ dnorm(0, 0.0001)
+sd_eta ~ dt(0, 0.04, 3)T(0, )
+
+}

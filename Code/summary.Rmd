@@ -1,0 +1,8 @@
+---
+title: "summary"
+output: word_document
+---
+
+$$
+log(y_{ikt}) = \alpha_{0ik} + \alpha_{1ik}age_{ikt} + \beta_{k}climate_{t} + \epsilon_{ikt}
+$$
