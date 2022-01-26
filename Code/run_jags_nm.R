@@ -50,26 +50,26 @@ raw <- readRDS(file = "Data/az_nm/raw_correlated_2904.RData")
 
 # Based on sample depth only do reconstruction of last 1000 years (and before 1500 is based completely on 1 species: PSME)
 if(TRUE) {
-cores <- raw %>%
-  group_by(core) %>%
-  dplyr::filter(!is.na(rwl)) %>%
-  dplyr::select(core, year, rwl) %>%
-  # dplyr::summarise(n()) %>%
-  # dplyr::filter()
-  summarise(f_yr = max(year),
-            rwl = min(rwl)) %>%
-  dplyr::filter(f_yr >= 1000) # 1510
-
-raw <- raw %>%
-  ungroup() %>%
-  dplyr::filter(core %in% cores$core) # ,
-                # year >= 1710) # not sure why this still isn't working with creating first and last year vectors
-
-raw <- raw %>%
-  filter(year >= 1000)
+  cores <- raw %>%
+    group_by(core) %>%
+    dplyr::filter(!is.na(rwl)) %>%
+    dplyr::select(core, year, rwl) %>%
+    # dplyr::summarise(n()) %>%
+    # dplyr::filter()
+    summarise(f_yr = max(year),
+              rwl = min(rwl)) %>%
+    dplyr::filter(f_yr >= 1000) # 1510
+  
+  raw <- raw %>%
+    ungroup() %>%
+    dplyr::filter(core %in% cores$core) # ,
+  # year >= 1710) # not sure why this still isn't working with creating first and last year vectors
+  
+  raw <- raw %>%
+    filter(year >= 1000)
 }
 
-  # make yij core x year table
+# make yij core x year table
 y_ij <- raw %>%
   group_by(study, noaa_id, sp_code, core) %>%
   dplyr::select(-rwl_norm, -core1) %>%
@@ -120,7 +120,7 @@ y_orig <- y_ij %>%
 
 # For now for the sake of time and memory just do last 500 years of climate
 # y_orig <- y_orig[ , (ncol(y_orig)-1000):ncol(y_orig)]
-  
+
 y_std <- (y_orig - mean(y_orig, na.rm = T) / sd(y_orig, na.rm = T))
 log_y <- log(y_orig + 0.001) # add tiny increase for years with zero growth (missing rings?)
 
@@ -193,7 +193,7 @@ m2_nc_data <- list(y = log_y,
                    Tea = Tea, 
                    a = a_use,
                    K = K,
-                  species = species,
+                   species = species,
                    # v = 410, # or 320 
                    x = x_use)
 
@@ -394,7 +394,7 @@ initialize_m2_nc = function(){
   for(k in 1:K) {
     beta0[k, 1] = rnorm(1, 1, 0.1)
     beta0[k, 2] = rnorm(1, 0.5, 0.1)
-  #   sd_eta[k] = sd(eta[ , k])
+    #   sd_eta[k] = sd(eta[ , k])
   }
   sd_eta = runif(K, 0.2, 0.3)
   sd_x = rlnorm(1, 0, 1) 
@@ -502,7 +502,7 @@ x_min <- (0 - x_mean) / x_sd # value of x on standardized scale when climate = 0
 
 initialize_m2_nc = function(){
   alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25)
- # alpha1 = -rlnorm(M, -1, 1)
+  # alpha1 = -rlnorm(M, -1, 1)
   sd_y = rlnorm(M, 0, 0.25) 
   sd_a0 = sd(alpha0)
   # sd_a1 = sd(alpha1)
@@ -691,6 +691,126 @@ write.csv(performance_df, file = "Results/NM/nm_performance_stats.csv", row.name
 #####
 
 
+##### negexp detrend, hollingIII climate relation, stationary climate ####
+
+# x_min <- (0 - x_mean) / x_sd # value of x on standardized scale when climate = 0
+x_min <- min(x_use, na.rm = TRUE)
+x_max <- max(x_use, na.rm = TRUE)
+
+initialize_m2_nc = function(){
+  alpha0 = rnorm(M, rowMeans(log_y, na.rm=TRUE), 0.25)
+  alpha1 = -rlnorm(M, -1, 0.25)
+  sd_y = rlnorm(M, 0, 1) 
+  mu_a0 = mean(alpha0)
+  mu_a1 = mean(alpha1)
+  sd_a0 = sd(alpha0)
+  sd_a1 = sd(alpha1)
+  x_1 = runif(K, -1.1, -0.5)
+  eta = matrix(rnorm(Tea*K, 0, 0.25), Tea, K)
+  beta0 = rnorm(K, 1, 0.1)
+  beta1 = rnorm(K, 0.5, 0.1)
+  
+  sd_eta = runif(K, 0.2, 0.3)
+  sd_x = rlnorm(1, 0, 1) 
+  
+  x_use_pos <- x_use * x_sd + x_mean
+  
+  return(list(sd_y = sd_y,
+              alpha0 = alpha0,
+              alpha1 = alpha1,
+              # mu_a0 = mu_a0,
+              # mu_a1 = mu_a1,
+              # sd_a0 = sd_a0,
+              # sd_a1 = sd_a1,
+              sd_eta = sd_eta,
+              x_1 = x_1,
+              beta0 = beta0,
+              beta1 = beta1,
+              sd_x = sd_x))
+}
+
+m2_nc_data <- list(y = log_y, 
+                   f = f, 
+                   l = l, 
+                   M = M, 
+                   Tea = Tea, 
+                   a = a_use,
+                   K = K,
+                   species = species,
+                   x_min = x_min,
+                   x_max = x_max,
+                   # v = 410, # or 320 
+                   x = x_use_pos)
+
+params <- c("x", "beta0",  "sd_eta", "sd_x", "sd_y", "x_1")
+
+cl <- makeCluster(nc)                       # Request # cores
+clusterExport(cl, c("m2_nc_data", "initialize_m2_nc", "params", "M", "f", "l", "K", "Tea", "a_use", "log_y", "x_use", "x_min", "x_mean", "x_sd", "nb", "ni", "nt", "K", "species"))
+clusterSetRNGStream(cl = cl, 8675301)
+system.time({ 
+  out <- clusterEvalQ(cl, {
+    library(rjags)
+    jm <- jags.model("Code/JAGS/holling3.txt", m2_nc_data, initialize_m2_nc, n.adapt=nb, n.chains=1) # Compile model and run burnin
+    out <- coda.samples(jm, params, n.iter=ni, thin=nt) # Sample from posterior distribution
+    return(as.mcmc(out))
+  })
+}) # 
+
+stopCluster(cl)
+
+# Results
+m_negexp_holling <- mcmc.list(out)
+save(m_negexp_holling, file = "Results/NM/JAGS/negexp_holling.RData")
+
+plot(m_negexp_holling[ , c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]", "beta1[1]", "beta1[2]", "beta1[3]")])
+par(mfrow = c(1,1))
+
+gelman.diag(m_negexp_holling[ , c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]", "beta1[1]", "beta1[2]", "beta1[3]")])
+
+effectiveSize(m_negexp_holling[ , c("sd_eta[1]", "sd_eta[2]", "sd_eta[3]", "sd_x", "beta0[1]", "beta0[2]", "beta0[3]", "beta1[1]", "beta1[2]", "beta1[3]")])
+
+x_id_50 = which(substr(varnames(m_negexp_holling),1,2)=="x[") # finds the indices of the x variables
+x_id_est <- x_id_50[!(x_id_50 %in% years[cal_ids])] # not working
+
+N_eff_x <- effectiveSize(as.matrix(m_negexp_holling[ , x_id_est])) #
+range(N_eff_x[which(N_eff_x > 0)])
+hist(N_eff_x[which(N_eff_x > 0)])
+
+post_climate_50 = colMeans(as.matrix(m_negexp_holling[ , x_id_50])) # finds the posterior mean of the x variables
+# plot(post_climate_50,type="l") # plots the posterior mean of the x variables
+plot(years, post_climate_50*x_sd + x_mean,type="l") # plots the posterior mean of the x variables on the original scale (degrees C) and year on x-axis
+
+# validation
+x_valid_post_m <- post_climate_50[hold_out]*x_sd + x_mean
+x_valid <- x_full[hold_out]
+plot(x_valid, x_valid_post_m, type = "p")
+abline(0, 1, col = "red")
+cor(x_valid, x_valid_post_m)
+
+# Validation Performance Statistics
+
+# performance statistics just using median of posterior prob for valid data
+performance_df[6, ] <- perf_stats(est_valid = x_valid_post_m, observed = x_full, valid_id = hold_out, cal_id = cal_ids, mod_id = "negexp_holling3")
+
+# reconstruction plot
+recon <- plot_recon(m_negexp_holling, obs = data.frame(year = years, value = x_full) , y_lab = "Mean Jan-Jul Precip. (cm)")
+
+# consider doing observed values as points to better see where they fall within the credible interval
+recon_valid <- plot_recon(m_negexp_holling, obs = data.frame(year = years, value = x_full) , y_lab = "Mean Jan-Jul Precip. (cm)", valid_yrs = years[hold_out])
+
+# reconstruction plot
+recon <- plot_recon(m_negexp_holling, obs = data.frame(year = years, value = x_full) , y_lab = "Mean Jan-Jul Precip. (cm)")
+
+recon2 <- recon + theme_bw_poster()
+ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_holling3_poster.pdf", dpi = 300)
+
+recon2 <- recon + theme_bw_journal()
+ggsave(plot = recon2, filename = "Results/Figures/NM/negexp_holling3_paper.pdf", dpi = 1000)
+
+rm(out)
+rm(m_negexp_holling3)
+
+#####
 
 
 ####### pre-whitening and re-reddening - AR model? #####
