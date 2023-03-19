@@ -12,7 +12,7 @@ Daniel J Hocking and Laura G. Smith
 
 ## Project Summary
 
-**Project summary can be found at: [http://djhocking.github.io/dendro_bayes/](http://djhocking.github.io/dendro_bayes/)**
+**Project summary can be found at: [http://lgsmith295.github.io/dendro_bayes/](http://djhocking.github.io/dendro_bayes/)**
 
 ## Updating the Project Webpage
 
